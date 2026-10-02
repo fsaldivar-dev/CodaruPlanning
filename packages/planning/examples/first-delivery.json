@@ -1,0 +1,39 @@
+{
+  "expectedRevision": 1,
+  "operations": [
+    {
+      "op": "create",
+      "ref": "epic",
+      "kind": "epic",
+      "title": "Primera entrega"
+    },
+    {
+      "op": "create",
+      "ref": "story",
+      "kind": "story",
+      "parentId": "@epic",
+      "title": "Validar el flujo",
+      "summary": "Ejemplo de escritura para una IA",
+      "markdown": "## Qué queremos lograr\nCompletar el flujo de una entrega.\n\n## Cómo lo vamos a resolver\nVerificar cada paso.\n\n```mermaid\nflowchart LR\n idea[Idea] --> entrega[Entrega]\n entrega --> docs[Documentación]\n```",
+      "criteria": [
+        {
+          "text": "El flujo fue verificado",
+          "checked": false
+        }
+      ]
+    },
+    {
+      "op": "create",
+      "ref": "doc",
+      "kind": "knowledge",
+      "title": "Cómo funciona la entrega",
+      "markdown": "## Qué hace\nConserva el resultado.\n\n## Cómo funciona\nSe revisa al terminar el trabajo."
+    },
+    {
+      "op": "link",
+      "source": "@story",
+      "target": "@doc",
+      "type": "modifies"
+    }
+  ]
+}

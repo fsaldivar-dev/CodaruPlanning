@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "..", "outDir": "dist/types",
+    "noEmit": false, "declaration": true, "emitDeclarationOnly": true,
+    "allowImportingTsExtensions": false
+  },
+  "include": ["src", "../planning-core/src"],
+  "exclude": ["src/cli.ts"]
+}

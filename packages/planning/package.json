@@ -1,0 +1,29 @@
+{
+  "name": "@fsaldivar.dev/planning",
+  "version": "0.1.0",
+  "description": "Local planning and living documentation: typed domain API and transactional AI CLI for Codaru Planning.",
+  "type": "module",
+  "license": "BSD-3-Clause",
+  "author": "fsaldivar-dev",
+  "repository": { "type": "git", "url": "git+https://github.com/fsaldivar-dev/CodaruPlanning.git", "directory": "packages/planning" },
+  "homepage": "https://github.com/fsaldivar-dev/CodaruPlanning#readme",
+  "bugs": "https://github.com/fsaldivar-dev/CodaruPlanning/issues",
+  "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org/" },
+  "engines": { "node": ">=22.12" },
+  "bin": { "codaru-planning": "./dist/cli.js" },
+  "exports": {
+    ".": { "types": "./dist/types/planning/src/index.d.ts", "import": "./dist/index.js" },
+    "./node": { "types": "./dist/types/planning/src/files.d.ts", "import": "./dist/files.js" },
+    "./package.json": "./package.json"
+  },
+  "files": ["dist", "examples", "README.md", "LICENSE"],
+  "sideEffects": false,
+  "scripts": { "build": "node ../../scripts/build-package.mjs", "prepack": "npm run build" },
+  "dependencies": {
+    "marked": "^18.0.14",
+    "prosemirror-model": "^1.25.12",
+    "prosemirror-schema-basic": "^1.2.5",
+    "prosemirror-schema-list": "^1.5.1",
+    "prosemirror-tables": "^1.8.5"
+  }
+}

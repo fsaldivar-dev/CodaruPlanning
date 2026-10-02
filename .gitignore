@@ -1,0 +1,15 @@
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/gen/
+.DS_Store
+*.log
+.qa/
+.codaru/
+artifacts/
+*.tgz
+.env
+.env.*
+!.env.example
+.npmrc
+*.pending

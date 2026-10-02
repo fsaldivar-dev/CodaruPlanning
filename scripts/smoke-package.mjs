@@ -1,0 +1,37 @@
+import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import { execFileSync } from "node:child_process";
+import assert from "node:assert/strict";
+const root = process.cwd();
+const tarball = resolve(process.argv[2] || "artifacts/fsaldivar.dev-planning-0.1.0.tgz");
+const folder = mkdtempSync(join(tmpdir(), "planning-consumer-"));
+try {
+  writeFileSync(join(folder, "package.json"), JSON.stringify({ name: "planning-consumer-smoke", private: true, type: "module" }));
+  execFileSync("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund", tarball], { cwd: folder, stdio: "pipe" });
+  const installed = join(folder, "node_modules/@fsaldivar.dev/planning");
+  const pkg = JSON.parse(readFileSync(join(installed, "package.json"), "utf8"));
+  const api = await import(pathToFileURL(join(installed, "dist/index.js")).href);
+  assert.equal(api.emptyWorkspace("Consumer").name, "Consumer");
+  writeFileSync(join(folder, "consumer.ts"), `import { applyOperations, emptyWorkspace, fromMarkdown, type Batch } from '@fsaldivar.dev/planning';
+import { readWorkspace, applyToFile } from '@fsaldivar.dev/planning/node';
+const batch: Batch = {expectedRevision: 0, operations: [{op:'create',kind:'idea',title:'Typed',content:fromMarkdown('Hello')}]};
+const result = applyOperations(emptyWorkspace(), batch);
+console.log(result.refs, readWorkspace, applyToFile);
+`);
+  execFileSync(join(root, "node_modules/.bin/tsc"), ["--noEmit", "--strict", "--skipLibCheck", "--module", "nodenext", "--moduleResolution", "nodenext", "--target", "es2022", "consumer.ts"], { cwd: folder, stdio: "pipe" });
+  const cli = join(folder, "node_modules/.bin/codaru-planning");
+  const run = (...args) => JSON.parse(execFileSync(cli, args, { cwd: folder, encoding: "utf8" }));
+  const workspace = join(folder, "workspace.json");
+  assert.equal(run("--version").version, pkg.version);
+  assert.equal(run("init", "--workspace", workspace, "--name", "Consumidor").revision, 1);
+  const file = join(installed, "examples/first-delivery.json");
+  const result = run("apply", "--workspace", workspace, "--file", file);
+  assert.equal(result.revision, 2);
+  const read = run("read", result.refs.story, "--workspace", workspace);
+  assert.match(read.markdown, /```mermaid/);
+  assert.equal(run("neighbors", result.refs.story, "--workspace", workspace).relations[0].type, "modifies");
+  assert.equal(run("validate", "--workspace", workspace).valid, true);
+  console.log(JSON.stringify({ package: pkg.name, version: pkg.version, installedOutsideRepo: true, executableBin: true, esmApi: true, typeScriptConsumer: true, createReadRelationsAndMarkdown: true }, null, 2));
+} finally { rmSync(folder, { recursive: true, force: true }); }

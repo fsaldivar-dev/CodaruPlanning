@@ -1,0 +1,40 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Codaru Planning",
+  "version": "0.1.0",
+  "identifier": "dev.codaru.planning",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://127.0.0.1:1435",
+    "beforeBuildCommand": "npm run build",
+    "removeUnusedCommands": true,
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Codaru Planning",
+        "width": 1280,
+        "height": 850,
+        "minWidth": 760,
+        "minHeight": 560,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": { "x": 20, "y": 23 },
+        "dragDropEnabled": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost data: blob:; font-src 'self'; connect-src ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app"],
+    "category": "Productivity",
+    "shortDescription": "Planificación y documentación viva",
+    "icon": ["icons/icon.icns", "icons/icon.png"],
+    "macOS": { "minimumSystemVersion": "13.0" }
+  }
+}
