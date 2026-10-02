@@ -17,7 +17,7 @@ La aplicación Tauri permanece en el repositorio; el paquete npm ofrece la API d
 
 ```sh
 npm whoami
-npm publish artifacts/fsaldivar.dev-planning-VERSION.tgz --access public
+npm publish ./artifacts/fsaldivar.dev-planning-VERSION.tgz --access public
 npm view @fsaldivar.dev/planning@VERSION version dist.integrity
 npx --yes --package @fsaldivar.dev/planning@VERSION codaru-planning --version
 ```
