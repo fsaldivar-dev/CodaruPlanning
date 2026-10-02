@@ -1,0 +1,20 @@
+@import './tokens.css';
+@import './editor/blocks.css';
+@import './editor/mermaid-designer.css';
+@import '@fsaldivar.dev/diagram/style.css';
+.block-editor .ProseMirror { position: relative; outline: none; word-wrap: break-word; white-space: pre-wrap; font-variant-ligatures: none; overflow-wrap: anywhere; }
+.block-editor .ProseMirror pre { white-space: pre-wrap; }
+.block-editor .ProseMirror li { position: relative; }
+.block-editor .ProseMirror-hideselection *::selection { background: transparent; }
+.block-editor .ProseMirror-hideselection { caret-color: transparent; }
+.block-editor .ProseMirror-selectednode { outline: 2px solid var(--accent); }
+.block-editor .ProseMirror .tableWrapper { overflow-x: auto; }
+.block-editor .ProseMirror .column-resize-handle { position: absolute; right: -2px; top: 0; bottom: -2px; width: 4px; z-index: 20; pointer-events: none; }
+.block-editor .ProseMirror.resize-cursor { cursor: col-resize; }
+.block-editor .ProseMirror .selectedCell::after { z-index: 2; position: absolute; content: ''; left: 0; right: 0; top: 0; bottom: 0; pointer-events: none; }
+.block-editor .ProseMirror a { color: var(--accent); }
+.block-editor .ProseMirror code { background: var(--bg); padding: 2px 4px; border-radius: 3px; }
+.block-editor .ProseMirror { font-size: var(--planning-document-font-size, 1.12em); }
+.block-editor .block-document { padding-left: var(--planning-gutter-width, 36px); }
+.block-editor .block-option strong, .block-editor .block-option small { font-size: 1em; }
+.block-editor .block-search { font-size: 1em; }

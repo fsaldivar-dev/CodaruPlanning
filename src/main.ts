@@ -23,6 +23,27 @@ import {
   type RichNode,
 } from "@codaru/planning-core";
 import { VisualEditor, validContent } from "./editor";
+import {
+  boardViewMarkup,
+  knowledgeListMarkup,
+  archiveMarkup,
+  deliveriesMarkup,
+  criteriaMarkup,
+  relationsMarkup,
+  itemHeaderMarkup,
+  detailTabsMarkup,
+  documentStateMarkup,
+  evidenceMarkup,
+  subtasksMarkup,
+  contextMarkup,
+  historyMarkup,
+  propertiesMarkup,
+  sidebarMarkup,
+  windowToolbarMarkup,
+  viewToolbarMarkup,
+  viewTitles,
+} from "@fsaldivar.dev/planning/components";
+import "@fsaldivar.dev/planning/components.css";
 import { zoomActiveSurface } from "./navigation";
 import { icon, esc } from "./icons";
 import * as storage from "./storage";
@@ -136,133 +157,19 @@ function applyAppearance() {
   root.dataset.density = s.density;
   root.classList.toggle("sidebar-hidden", !s.sidebar);
 }
-function card(item: Item) {
-  const parent = item.parentId ? itemBy(item.parentId) : undefined;
-  const remaining = blockers(ws, item);
-  const docs = ws.relations
-    .filter((r) => r.source === item.id && r.type === "modifies")
-    .map((r) => itemBy(r.target));
-  const children = descendants(ws, item.id);
-  return `<article class="work-card" draggable="true" data-drag="${item.id}"><button class="card-main" data-open="${item.id}" aria-label="Abrir ${esc(item.title)}"><span class="card-meta"><span>${icon(item.kind)}${kindLabels[item.kind]}</span><span>${shortId(item)}</span></span><strong>${esc(item.title)}</strong>${item.summary ? `<p>${esc(item.summary)}</p>` : ""}${remaining.length ? `<span class="dependency">${icon("link")}${remaining.length} dependencia${remaining.length === 1 ? "" : "s"} pendiente${remaining.length === 1 ? "" : "s"}</span>` : ""}${parent ? `<span class="epic-chip">${icon("epic")}${esc(parent.title)}</span>` : ""}<span class="card-footer"><span>${icon("task")}${item.criteria.filter((c) => c.checked).length}/${item.criteria.length}${children.length ? ` · ${children.filter((i) => i.status === "done").length}/${children.length} subtareas` : ""}</span>${docs.length ? `<span class="${docs.some((d) => d.freshness !== "current") ? "pending" : "current"}">${icon("document")}${docs.some((d) => d.freshness !== "current") ? "Revisar" : "Vigente"}</span>` : ""}${item.priority === "high" ? '<span class="high">Alta</span>' : ""}</span></button></article>`;
-}
-function boardColumns(items: Item[]) {
-  return `<div class="board-grid">${statuses
-    .map(([status, label]) => {
-      const list = items.filter((i) => i.status === status);
-      return `<section class="board-column" data-drop="${status}" aria-label="${label}"><header><span class="status-dot ${status}"></span><h2>${label}</h2><span class="count">${list.length}</span><button class="icon-button" data-new-status="${status}" aria-label="Añadir en ${label}">${icon("new")}</button></header><div class="card-list">${list.map(card).join("")}</div>${list.length ? "" : `<div class="drop-hint">Sin tarjetas</div>`}<button class="column-add" data-new-status="${status}">${icon("new")}Añadir tarjeta</button></section>`;
-    })
-    .join("")}</div>`;
-}
-function matching(item: Item) {
-  return (
-    !query ||
-    `${item.title} ${item.summary} ${plain(item.content)}`
-      .toLocaleLowerCase()
-      .includes(query.toLocaleLowerCase())
-  );
-}
-function board() {
-  const within = (i: Item, key: string) => {
-    let parent = i.parentId;
-    while (parent) {
-      if (parent === key) return true;
-      parent = itemBy(parent)?.parentId;
-    }
-    return false;
-  };
-  const items = ws.items.filter(
-    (i) =>
-      !i.archived &&
-      ["idea", "story", "task"].includes(i.kind) &&
-      matching(i) &&
-      (epicFilter === "all" || within(i, epicFilter)),
-  );
-  return `${!ws.exampleDismissed ? `<div class="welcome-note">${icon("lightbulb")}<span>Este espacio incluye ejemplos editables. Añade tus ideas o archiva los ejemplos cuando quieras.</span><button class="icon-button" data-action="dismiss-welcome" aria-label="Cerrar bienvenida">${icon("close")}</button></div>` : ""}<div class="board-filter"><label>Épica <select id="epic-filter"><option value="all">Todas</option>${options(
-    ws.items.filter((i) => i.kind === "epic" && !i.archived),
-    epicFilter,
-  )}</select></label><span class="muted">${items.length} tarjetas</span></div>${
-    ws.settings.board === "status"
-      ? boardColumns(items)
-      : [
-          ...ws.items.filter((i) => i.kind === "epic" && !i.archived),
-          { id: "none", title: "Sin épica" },
-        ]
-          .map((epic) => {
-            const children = items.filter((i) =>
-              epic.id === "none"
-                ? !ws.items.some((p) => p.kind === "epic" && within(i, p.id))
-                : within(i, epic.id),
-            );
-            if (!children.length) return "";
-            return `<details class="epic-group" open><summary>${icon("epic")}${esc(epic.title)}<span class="muted">${children.filter((i) => i.status === "done").length}/${children.length}</span></summary>${boardColumns(children)}</details>`;
-          })
-          .join("")
-  }`;
-}
-function knowledgeList() {
-  const items = ws.items.filter(
-    (i) => !i.archived && i.kind === "knowledge" && matching(i),
-  );
-  return `<div class="section-intro"><p>El comportamiento del producto y las decisiones que siguen vigentes.</p>${commandButton("Nueva ficha", "new-knowledge", "new")}</div><div class="document-grid">${items.map((i) => `<button class="document-card" data-open="${i.id}"><div class="document-card-top">${icon("document")}<span class="badge ${i.freshness === "current" ? "current" : "pending"}">${i.freshness === "current" ? "Vigente" : i.freshness === "draft" ? "Borrador" : "Por revisar"}</span></div><h2>${esc(i.title)}</h2><p>${esc(i.summary || plain(i.content).slice(0, 140))}</p><footer>Revisión ${i.revision}<span>${neighbors(ws, i.id).length} relaciones · ${date(i.updatedAt)}</span></footer></button>`).join("") || '<div class="empty">Crea una ficha para conservar lo que sabe tu producto.</div>'}</div>`;
-}
-function archived() {
-  return `<div class="section-intro"><p>El archivo conserva contenido, relaciones e historial.</p></div><div class="item-list">${
-    ws.items
-      .filter((i) => i.archived && matching(i))
-      .map(
-        (i) =>
-          `<div class="item-row"><button data-open="${i.id}">${icon(i.kind)}<span>${esc(i.title)}<small>${kindLabels[i.kind]}</small></span></button><button data-restore="${i.id}">Restaurar</button></div>`,
-      )
-      .join("") || '<div class="empty">No hay elementos archivados.</div>'
-  }</div>`;
-}
-function deliveries() {
-  return `<div class="section-intro"><p>Resultados verificados y revisiones documentales de cada entrega.</p>${commandButton("Registrar entrega", "new-delivery", "new")}</div>${
-    ws.deliveries
-      .map(
-        (d) =>
-          `<section class="delivery-card"><header>${icon("deliveries")}<h2>${esc(d.title)}</h2><span class="muted">${date(d.at)}</span></header><p>${esc(d.notes)}</p>${d.items
-            .map((key) => {
-              const i = itemBy(key);
-              return i
-                ? `<button class="delivery-item" data-open="${key}">${icon("verified")}${esc(i.title)}${icon("right")}</button>`
-                : "";
-            })
-            .join(
-              "",
-            )}<footer>${d.documents.map((doc) => `<button class="text-button" data-open="${doc.id}">${esc(itemBy(doc.id)?.title)} · r${doc.revision}</button>`).join("")}</footer></section>`,
-      )
-      .join("") ||
-    '<div class="empty">Tus entregas aparecerán aquí cuando verifiques el trabajo y su documentación.</div>'
-  }`;
-}
-function criteria(item: Item) {
-  return `<section class="criteria"><h3>Criterios de aceptación <span class="muted">${item.criteria.filter((c) => c.checked).length}/${item.criteria.length}</span></h3>${item.criteria.map((c) => `<div class="criterion"><input type="checkbox" aria-label="Cumplido: ${esc(c.text)}" data-check="${c.id}" ${c.checked ? "checked" : ""}><input class="plain-input" data-criterion-text="${c.id}" value="${esc(c.text)}" aria-label="Texto del criterio"><button class="icon-button" data-remove-criterion="${c.id}" aria-label="Quitar criterio">${icon("close")}</button></div>`).join("")}<button class="text-button" data-action="add-criterion">${icon("new")}Añadir criterio</button></section>`;
-}
-function relations(item: Item) {
-  const links = neighbors(ws, item.id);
-  return `<section><div class="section-heading"><h3>Relaciones</h3>${commandButton("Vincular", "link", "new")}</div>${links.map((n) => `<div class="relation-row"><button data-open="${n.item!.id}">${icon(n.item!.kind)}<span><small>${n.direction === "in" ? "←" : "→"} ${n.relation === "depends" ? "Depende de" : n.relation === "modifies" ? "Modifica" : "Consulta"}</small>${esc(n.item!.title)}</span>${icon("right")}</button><button class="icon-button remove-link" data-remove-link="${n.id}" aria-label="Quitar vínculo con ${esc(n.item!.title)}">${icon("close")}</button></div>`).join("") || '<p class="muted">Vincula dependencias y conocimiento relevante.</p>'}</section>`;
-}
+// Every piece below is the package's own markup: the application is one host among others.
 function details(item: Item) {
-  const parent = item.parentId ? itemBy(item.parentId) : undefined;
-  const kids = ws.items.filter((i) => i.parentId === item.id && !i.archived);
-  const knowledge = item.kind === "knowledge";
-  return `<div class="detail-layout"><div class="document-editor"><div class="detail-crumb"><button class="text-button" data-action="back">${icon("back")}${knowledge ? "Conocimiento" : "Tablero"}</button><span>${parent ? esc(parent.title) + " / " : ""}${shortId(item)}</span><button class="icon-button" data-action="archive" title="Archivar" aria-label="Archivar">${icon("archive")}</button></div><input class="document-title" id="item-title" value="${esc(item.title)}" aria-label="Título"><input class="document-summary" id="item-summary" value="${esc(item.summary)}" placeholder="Un resumen breve para la siguiente persona o IA…" aria-label="Resumen"><div class="detail-tabs">${[["content", "Contenido"], ["subtasks", `Subtareas (${kids.length})`], ["context", "Contexto"], ["diagram", "Diagrama"], ...(knowledge ? [["history", `Historial (${item.history.length})`]] : [])].map(([value, label]) => `<button data-detail-tab="${value}" aria-pressed="${value === detailTab}">${label}</button>`).join("")}</div>${detailTab === "content" ? `${knowledge ? `<div class="document-state ${item.freshness === "current" ? "current" : "pending"}">${icon(item.freshness === "current" ? "verified" : "warning")}<span>${item.freshness === "current" ? `Revisión ${item.revision} vigente` : `Revisión ${item.revision} · ${item.pendingChange ? "cambios sin publicar" : "pendiente de revisión"}`}</span></div>` : ""}<div id="rich-editor"></div>${!knowledge ? criteria(item) : ""}<section class="evidence"><h3>${knowledge ? "Verificación de la documentación" : "Resultado y verificación"}</h3><textarea id="evidence" aria-label="Resultado y verificación" placeholder="Qué comprobaste, contra qué versión y dónde está la evidencia…">${esc(item.pendingEvidence ?? item.evidence)}</textarea>${knowledge ? commandButton("Publicar revisión verificada", "verify-doc", "verified", 'class="primary"') : ""}</section>` : detailTab === "subtasks" ? `<div class="section-heading"><h3>Trabajo dentro de ${esc(item.title)}</h3>${!knowledge ? commandButton(item.kind === "epic" ? "Historia" : "Subtarea", "new-subtask", "new") : ""}</div><div class="item-list">${kids.map((k) => `<div class="item-row"><button data-open="${k.id}">${icon(k.kind)}<span>${esc(k.title)}<small>${statuses.find(([s]) => s === k.status)?.[1]}</small></span>${icon("right")}</button></div>`).join("") || '<p class="muted">No hay subtareas.</p>'}</div>` : detailTab === "context" ? `${relations(item)}<section class="context-summary"><h3>Contexto para IA</h3><p class="muted">Resumen, relaciones y secciones de esta ficha. Los documentos indican su revisión y vigencia.</p><code>${esc(item.id)}</code><button data-action="copy-context">${icon("copy")}Copiar contexto de esta ficha</button><button data-action="export-item">${icon("export")}Exportar ficha</button></section>` : detailTab === "diagram" ? '<div id="diagram-host"></div>' : `<div class="history-list">${item.history.map((r, index) => `<button data-history="${index}">${icon("document")}<span>Revisión ${r.revision}<small>${date(r.at)} · ${esc(r.summary || "Versión anterior")}</small></span>${icon("right")}</button>`).join("") || '<p class="muted">Las revisiones publicadas conservarán aquí su versión anterior.</p>'}</div>`}</div><aside class="inspector"><h3>Propiedades</h3><label>Tipo<span>${icon(item.kind)}${kindLabels[item.kind]}</span></label>${!knowledge ? `<label>Estado<select id="item-status">${statuses.map(([s, l]) => `<option value="${s}" ${s === item.status ? "selected" : ""}>${l}</option>`).join("")}</select></label><label>Prioridad<select id="item-priority"><option value="normal">Normal</option><option value="high" ${item.priority === "high" ? "selected" : ""}>Alta</option></select></label>` : `<label>Revisión<span>${item.revision}</span></label>`}${
-    ["story", "task"].includes(item.kind)
-      ? `<label>${item.kind === "story" ? "Épica" : "Historia"}<select id="item-parent"><option value="">Sin asignar</option>${options(
-          ws.items.filter(
-            (i) =>
-              !i.archived &&
-              i.id !== item.id &&
-              (item.kind === "story"
-                ? i.kind === "epic"
-                : ["story", "task"].includes(i.kind) &&
-                  !descendants(ws, item.id).some((child) => child.id === i.id)),
-          ),
-          item.parentId,
-        )}</select></label>`
-      : ""
-  }<label>Actualizado<span>${date(item.updatedAt)}</span></label>${relations(item)}${item.archived ? `<div class="document-state pending">Este elemento está archivado.</div><button data-restore="${item.id}">Restaurar</button>` : ""}</aside></div>`;
+  return `<div class="detail-layout"><div class="document-editor">${itemHeaderMarkup(ws, item, icon)}${detailTabsMarkup(ws, item, detailTab)}${
+    detailTab === "content"
+      ? `${documentStateMarkup(item, icon)}<div id="rich-editor"></div>${item.kind !== "knowledge" ? criteriaMarkup(item, icon) : ""}${evidenceMarkup(item, icon)}`
+      : detailTab === "subtasks"
+        ? subtasksMarkup(ws, item, icon)
+        : detailTab === "context"
+          ? `${relationsMarkup(ws, item, icon)}${contextMarkup(item, icon)}`
+          : detailTab === "diagram"
+            ? '<div id="diagram-host"></div>'
+            : historyMarkup(item, icon)
+  }</div>${propertiesMarkup(ws, item, icon)}</div>`;
 }
 function render() {
   const token = ++renderToken;
@@ -272,28 +179,7 @@ function render() {
   diagramCleanup = undefined;
   applyAppearance();
   const item = selected ? itemBy(selected) : undefined;
-  const activeEpics = ws.items.filter((i) => i.kind === "epic" && !i.archived);
-  const titles = {
-    board: "Planificación",
-    knowledge: "Conocimiento",
-    deliveries: "Entregas",
-    graph: "Relaciones",
-    archive: "Archivo",
-  };
-  app.innerHTML = `<header class="window-toolbar" data-tauri-drag-region><div class="toolbar-leading"><button class="icon-button" data-action="toggle-sidebar" aria-label="Mostrar u ocultar barra lateral" title="Barra lateral ⇧⌘L">${icon("sidebar")}</button><div class="window-title" data-tauri-drag-region><strong>${esc(ws.name)}</strong><span>${item ? esc(item.title) : titles[view]}</span></div></div><div class="toolbar-trailing"><label class="search-field">${icon("search")}<input id="search" placeholder="Buscar" aria-label="Buscar" value="${esc(query)}"><kbd>⌘F</kbd></label><button class="icon-button" data-action="new" aria-label="${ws.draft ? "Continuar borrador" : "Nueva tarjeta"}" title="Nueva tarjeta ⌘N">${icon("new")}</button><button class="icon-button" data-action="settings" aria-label="Configuración" title="Configuración ⌘,">${icon("settings")}</button></div></header><div class="app-shell"><aside class="sidebar"><div class="sidebar-section-label">Espacio</div>${[
-    ["board", "board", "Planificación"],
-    ["knowledge", "knowledge", "Conocimiento"],
-    ["deliveries", "deliveries", "Entregas"],
-    ["graph", "graph", "Relaciones"],
-    ["archive", "archive", "Archivo"],
-  ]
-    .map(
-      ([v, i, l]) =>
-        `<button class="sidebar-item ${view === v ? "selected" : ""}" data-view="${v}">${icon(i)}<span>${l}</span>${v === "knowledge" ? `<small>${ws.items.filter((i) => i.kind === "knowledge" && !i.archived).length}</small>` : ""}</button>`,
-    )
-    .join(
-      "",
-    )}<div class="sidebar-section-label section-split"><span>Épicas</span><button class="icon-button" data-new-kind="epic" aria-label="Nueva épica">${icon("new")}</button></div>${activeEpics.map((e) => `<div class="sidebar-epic"><button data-filter-epic="${e.id}" class="sidebar-item ${epicFilter === e.id ? "epic-selected" : ""}">${icon("epic")}<span>${esc(e.title)}</span></button><button class="epic-open" data-open="${e.id}" aria-label="Abrir épica ${esc(e.title)}">${icon("right")}</button></div>`).join("")}${ws.draft ? `<button class="sidebar-item draft-item" data-action="new">${icon("edit")}Borrador sin terminar</button>` : ""}<div class="sidebar-spacer"></div><div class="local-status">${icon(saveError ? "warning" : "verified")}<span id="save-label">${esc(saveLabel)}</span></div><button id="recover-storage" data-action="recover-storage" style="display:${saveError ? "block" : "none"}">Exportar copia y recargar</button></aside><main class="main-content">${!item ? `<div class="view-toolbar"><h1>${titles[view]}</h1>${view === "board" ? `<div class="segmented"><button data-board="status" aria-pressed="${ws.settings.board === "status"}">Estados</button><button data-board="epics" aria-pressed="${ws.settings.board === "epics"}">Épicas</button></div>` : ""}<div class="toolbar-space"></div>${view === "board" ? `<details class="create-menu"><summary>${icon("new")}Nueva tarjeta</summary><div class="menu-popover">${(["idea", "story", "task", "epic", "knowledge"] as Kind[]).map((kind) => `<button data-new-kind="${kind}">${icon(kind)}${kindLabels[kind]}</button>`).join("")}</div>` : ""}</div>` : ""}<div class="view-content ${item ? "has-detail" : ""}">${item ? details(item) : view === "board" ? board() : view === "knowledge" ? knowledgeList() : view === "deliveries" ? deliveries() : view === "archive" ? archived() : '<div id="graph-host"></div>'}</div></main></div>`;
+  app.innerHTML = `${windowToolbarMarkup(ws, { subtitle: item ? item.title : viewTitles[view], query }, icon)}<div class="app-shell">${sidebarMarkup(ws, { view, epicFilter, saveLabel, saveError: !!saveError }, icon)}<main class="main-content">${!item ? viewToolbarMarkup(ws, view, icon) : ""}<div class="view-content ${item ? "has-detail" : ""}">${item ? details(item) : view === "board" ? boardViewMarkup(ws, { query, epicFilter }, icon) : view === "knowledge" ? knowledgeListMarkup(ws, query, icon) : view === "deliveries" ? deliveriesMarkup(ws, icon) : view === "archive" ? archiveMarkup(ws, query, icon) : '<div id="graph-host"></div>'}</div></main></div>`;
   bind();
   if (item && detailTab === "content")
     editor = new VisualEditor(

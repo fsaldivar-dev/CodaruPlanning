@@ -20,7 +20,10 @@
     "build:package": "npm run build --workspace @fsaldivar.dev/planning",
     "cli": "node packages/planning/dist/cli.js",
     "pack:planning": "npm pack --workspace @fsaldivar.dev/planning --pack-destination artifacts",
-    "size": "node scripts/size.mjs"
+    "size": "node scripts/size.mjs",
+    "predev": "npm run build:package",
+    "prebuild": "npm run build:package",
+    "precheck": "npm run build:package"
   },
   "dependencies": {
     "@fsaldivar.dev/diagram": "^0.1.0",
@@ -40,8 +43,10 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.12.1",
+    "@types/jsdom": "^30.0.0",
     "@types/node": "^26.6.4",
     "esbuild": "^0.28.2",
+    "jsdom": "^30.1.1",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vite": "^8.3.2"
