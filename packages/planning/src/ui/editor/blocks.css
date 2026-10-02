@@ -1,9 +1,9 @@
 .block-editor {
   position: relative;
-  --code-keyword: #a32fb0;
-  --code-title: #2b7582;
-  --code-string: #b64a36;
-  --code-number: #805abb;
+  --code-keyword: var(--planning-code-keyword, #a32fb0);
+  --code-title: var(--planning-code-title, #2b7582);
+  --code-string: var(--planning-code-string, #b64a36);
+  --code-number: var(--planning-code-number, #805abb);
 }
 .block-editor [hidden] {
   display: none !important;
@@ -356,12 +356,6 @@
 .block-editor .hljs-comment,
 .block-editor .hljs-meta {
   color: var(--muted);
-}
-:root[data-theme="dark"] .block-editor {
-  --code-keyword: #e293e9;
-  --code-title: #87ced5;
-  --code-string: #edaa88;
-  --code-number: #c1a7ff;
 }
 .block-editor .block-gutter {
   position: absolute;

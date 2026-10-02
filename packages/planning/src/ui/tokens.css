@@ -1,0 +1,56 @@
+/* Public tokens are inherited from the consuming host. Never style body/:root. */
+.codaru-planning {
+  --accent: var(--planning-accent, #007aff);
+  --accent-ink: var(--planning-accent-ink, #fff);
+  --surface: var(--planning-surface, #fff);
+  --bg: var(--planning-background, #f5f5f7);
+  --text: var(--planning-text, #1d1d1f);
+  --muted: var(--planning-muted, #727278);
+  --line: var(--planning-border, #d8d8de);
+  --soft-line: var(--planning-divider, #e9e9ed);
+  --hover: var(--planning-hover, #00000008);
+  --selection: var(--planning-selection, #007aff20);
+  --sidebar: var(--planning-sidebar, #ececef);
+  --toolbar: var(--planning-toolbar, #f1f1f4);
+  --field: var(--planning-field, var(--surface));
+  --shadow: var(--planning-shadow, 0 1px 3px #0000000d);
+  --success: var(--planning-success, #327755);
+  --warning: var(--planning-warning, #a46116);
+  --font: var(--planning-font, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+  /* Component sizes are multiples of --rem (13px in the desktop application). */
+  --rem: var(--planning-font-size, 13px);
+  color: var(--text);
+  font: var(--planning-font-size, 14px)/1.5 var(--font);
+  color-scheme: var(--planning-color-scheme, light);
+}
+/* Dark defaults: set data-theme="dark" on the piece or on any ancestor. Explicit --planning-* values still win. */
+:where([data-theme="dark"]) .codaru-planning, .codaru-planning[data-theme="dark"] {
+  --surface: var(--planning-surface, #2b2b2f);
+  --bg: var(--planning-background, #202023);
+  --sidebar: var(--planning-sidebar, #252528);
+  --toolbar: var(--planning-toolbar, #2a2a2e);
+  --field: var(--planning-field, #353539);
+  --text: var(--planning-text, #ededf0);
+  --muted: var(--planning-muted, #acacb3);
+  --line: var(--planning-border, #414147);
+  --soft-line: var(--planning-divider, #39393e);
+  --hover: var(--planning-hover, #ffffff0c);
+  --shadow: var(--planning-shadow, 0 1px 3px #0003);
+  --success: var(--planning-success, #80c49c);
+  --warning: var(--planning-warning, #e3b478);
+  color-scheme: var(--planning-color-scheme, dark);
+}
+.codaru-planning *, .codaru-planning *::before, .codaru-planning *::after { box-sizing: border-box; }
+.codaru-planning [hidden] { display: none !important; }
+.codaru-planning:where(:not(.planning-components)) :where(button, input, select, textarea) { font: inherit; color: inherit; }
+.codaru-planning:where(:not(.planning-components)) :where(button) { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--line); border-radius: 6px; padding: 5px 9px; background: var(--surface); cursor: pointer; }
+.codaru-planning:where(:not(.planning-components)) :where(button):disabled { opacity: .4; cursor: default; }
+.codaru-planning:where(:not(.planning-components)) :where(button):hover:not(:disabled) { background: var(--hover); }
+.codaru-planning:where(:not(.planning-components)) :where(input:not([type=checkbox]), select, textarea) { border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; background: var(--surface); }
+.codaru-planning:where(:not(.planning-components)) :where(input[type=checkbox]) { accent-color: var(--accent); }
+.codaru-planning:where(:not(.planning-components)) :where(button, input, select, textarea):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.codaru-planning:where(:not(.planning-components)) .symbol { display: inline-block; width: 16px; height: 16px; flex: none; }
+.codaru-planning:where(:not(.planning-components)) span.symbol { background: currentColor; mask: var(--symbol) no-repeat center/contain; -webkit-mask: var(--symbol) no-repeat center/contain; }
+.codaru-planning:where(:not(.planning-components)) .toolbar-space { flex: 1; }
+.codaru-planning:where(:not(.planning-components)) .icon-button { padding: 5px; min-width: 28px; min-height: 28px; border: 0; background: transparent; color: var(--muted); }
+.codaru-planning:where(:not(.planning-components)) .primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }

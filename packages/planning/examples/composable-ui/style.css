@@ -1,0 +1,24 @@
+/* Host styles only: layout of the slots and the theme. The pieces bring their own look. */
+* { box-sizing: border-box; }
+body { margin: 0; font: 13px -apple-system, BlinkMacSystemFont, sans-serif; }
+#host { height: 100vh; display: flex; flex-direction: column; }
+
+/* Theme: override any --planning-* variable on an ancestor of the pieces. */
+#host.accent { --planning-accent: #7563c4; --planning-selection: #7563c422; }
+#host[data-theme="dark"].accent { --planning-accent: #b2a0fa; --planning-accent-ink: #1b1630; }
+
+.host-strip { display: flex; align-items: center; gap: 12px; padding: 8px 20px; background: #1f2430; color: #d9dce6; font-size: 12px; }
+.host-strip span { margin-right: auto; opacity: .7; }
+.host-strip button { font: inherit; color: inherit; background: #323949; border: 0; border-radius: 5px; padding: 5px 10px; cursor: pointer; }
+.host-shell { flex: 1; min-height: 0; display: flex; }
+#slot-sidebar, #slot-sidebar > div, #slot-properties, #slot-properties > div { display: flex; }
+#list-view, #detail-view { flex: 1; min-width: 0; display: flex; }
+#list-view { flex-direction: column; background: var(--planning-background, #f5f5f7); }
+#host[data-theme="dark"] #list-view { background: var(--planning-background, #202023); }
+.host-scroll { flex: 1; overflow: auto; padding: 0 30px 30px; }
+.host-document { flex: 1; min-width: 0; overflow: auto; padding: 23px 38px 60px; background: var(--planning-surface, #fff); }
+#host[data-theme="dark"] .host-document { background: var(--planning-surface, #2b2b2f); }
+#host.properties-left #slot-properties { order: -1; }
+#host.properties-left .inspector { border-left: 0; border-right: 1px solid var(--line); }
+[hidden] { display: none !important; }
+#host-status { padding: 5px 20px; font-size: 11px; color: #777; border-top: 1px solid #8884; }

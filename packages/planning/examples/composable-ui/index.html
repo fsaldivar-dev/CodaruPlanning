@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Planning · piezas independientes</title>
+</head>
+<body>
+  <!-- Everything here belongs to the host. Each empty element is a slot where one piece is mounted. -->
+  <div id="host">
+    <div class="host-strip">
+      <strong>Tu aplicación</strong>
+      <span>Cada zona es un componente montado por separado.</span>
+      <button id="toggle-theme">Tema oscuro</button>
+      <button id="toggle-accent">Otro acento</button>
+      <button id="toggle-side">Propiedades a la izquierda</button>
+    </div>
+    <div id="slot-window-toolbar"></div>
+    <div class="host-shell">
+      <div id="slot-sidebar"></div>
+      <main id="list-view">
+        <div id="slot-view-toolbar"></div>
+        <div class="host-scroll" id="slot-view"></div>
+      </main>
+      <main id="detail-view" hidden>
+        <div class="host-document">
+          <div id="slot-header"></div>
+          <div id="slot-tabs"></div>
+          <div data-tab="content">
+            <div id="slot-editor"></div>
+            <div id="slot-criteria"></div>
+            <div id="slot-evidence"></div>
+          </div>
+          <div data-tab="subtasks" id="slot-subtasks" hidden></div>
+          <div data-tab="context" hidden>
+            <div id="slot-relations"></div>
+            <div id="slot-context"></div>
+          </div>
+          <div data-tab="history" id="slot-history" hidden></div>
+        </div>
+        <div id="slot-properties"></div>
+      </main>
+    </div>
+    <div id="host-status" role="status">Ejemplo en memoria</div>
+  </div>
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>

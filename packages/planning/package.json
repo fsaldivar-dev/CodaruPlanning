@@ -1,29 +1,120 @@
 {
   "name": "@fsaldivar.dev/planning",
-  "version": "0.1.0",
-  "description": "Local planning and living documentation: typed domain API and transactional AI CLI for Codaru Planning.",
+  "version": "0.2.0",
+  "description": "Composable planning components, block Markdown editor with Kairo, domain API and transactional AI CLI.",
   "type": "module",
   "license": "BSD-3-Clause",
   "author": "fsaldivar-dev",
-  "repository": { "type": "git", "url": "git+https://github.com/fsaldivar-dev/CodaruPlanning.git", "directory": "packages/planning" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fsaldivar-dev/CodaruPlanning.git",
+    "directory": "packages/planning"
+  },
   "homepage": "https://github.com/fsaldivar-dev/CodaruPlanning#readme",
   "bugs": "https://github.com/fsaldivar-dev/CodaruPlanning/issues",
-  "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org/" },
-  "engines": { "node": ">=22.12" },
-  "bin": { "codaru-planning": "./dist/cli.js" },
-  "exports": {
-    ".": { "types": "./dist/types/planning/src/index.d.ts", "import": "./dist/index.js" },
-    "./node": { "types": "./dist/types/planning/src/files.d.ts", "import": "./dist/files.js" },
-    "./package.json": "./package.json"
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
-  "files": ["dist", "examples", "README.md", "LICENSE"],
-  "sideEffects": false,
-  "scripts": { "build": "node ../../scripts/build-package.mjs", "prepack": "npm run build" },
+  "engines": {
+    "node": ">=22.12"
+  },
+  "bin": {
+    "codaru-planning": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/types/planning/src/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./node": {
+      "types": "./dist/types/planning/src/files.d.ts",
+      "import": "./dist/files.js"
+    },
+    "./package.json": "./package.json",
+    "./markdown": {
+      "types": "./dist/types/planning/src/markdown.d.ts",
+      "import": "./dist/markdown.js"
+    },
+    "./editor": {
+      "types": "./dist/types/planning/src/ui/editor.d.ts",
+      "import": "./dist/editor.js"
+    },
+    "./editor/commands": {
+      "types": "./dist/types/planning/src/ui/editor/blocks.d.ts",
+      "import": "./dist/editor-commands.js"
+    },
+    "./components": {
+      "types": "./dist/types/planning/src/ui/components.d.ts",
+      "import": "./dist/components.js"
+    },
+    "./mermaid": {
+      "types": "./dist/types/planning/src/ui/mermaid.d.ts",
+      "import": "./dist/mermaid.js"
+    },
+    "./navigation": {
+      "types": "./dist/types/planning/src/ui/navigation.d.ts",
+      "import": "./dist/navigation.js"
+    },
+    "./editor.css": {
+      "types": "./dist/styles.d.ts",
+      "default": "./dist/editor.css"
+    },
+    "./components.css": {
+      "types": "./dist/styles.d.ts",
+      "default": "./dist/components.css"
+    }
+  },
+  "files": [
+    "dist",
+    "examples",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "scripts": {
+    "build": "node ../../scripts/build-package.mjs",
+    "prepack": "npm run build"
+  },
   "dependencies": {
     "marked": "^18.0.14",
     "prosemirror-model": "^1.25.12",
     "prosemirror-schema-basic": "^1.2.5",
     "prosemirror-schema-list": "^1.5.1",
     "prosemirror-tables": "^1.8.5"
+  },
+  "peerDependencies": {
+    "@fsaldivar.dev/diagram": "^0.1.0",
+    "highlight.js": "^11.12.0",
+    "prosemirror-commands": "^1.7.2",
+    "prosemirror-history": "^1.5.1",
+    "prosemirror-keymap": "^1.2.3",
+    "prosemirror-state": "^1.4.4",
+    "prosemirror-view": "^1.42.6"
+  },
+  "peerDependenciesMeta": {
+    "@fsaldivar.dev/diagram": {
+      "optional": true
+    },
+    "highlight.js": {
+      "optional": true
+    },
+    "prosemirror-commands": {
+      "optional": true
+    },
+    "prosemirror-history": {
+      "optional": true
+    },
+    "prosemirror-keymap": {
+      "optional": true
+    },
+    "prosemirror-state": {
+      "optional": true
+    },
+    "prosemirror-view": {
+      "optional": true
+    }
   }
 }
