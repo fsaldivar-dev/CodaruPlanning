@@ -161,7 +161,7 @@ La aplicación de escritorio se construye con estas mismas piezas, así que se v
 | Pieza | Qué muestra | Intenciones |
 | --- | --- | --- |
 | `mountWindowToolbar` | Nombre del espacio, subtítulo, buscador, nueva tarjeta, configuración | `onSearch`, `onNew`, `onSettings`, `onToggleSidebar` |
-| `mountSidebar` | Vistas, épicas, borrador y estado de guardado | `onView`, `onFilterEpic`, `onOpen`, `onNewEpic`, `onDraft`, `onRecover` |
+| `mountSidebar` | Vistas, épicas, borrador y estado de guardado; secciones configurables (ver abajo) | `onView`, `onFilterEpic`, `onOpen`, `onNewEpic`, `onDraft`, `onRecover`, `onSearch` |
 | `mountViewToolbar` | Título de la vista, Estados/Épicas, menú «Nueva tarjeta» | `onBoardMode`, `onCreate` |
 | `mountBoard` | Tablero con filtro por épica, columnas y arrastre | `onOpen`, `onCreate`, `onStatusChange`, `onEpicFilter`, `onDismissWelcome` |
 | `mountCard` | Una tarjeta | `onOpen` |
@@ -195,6 +195,26 @@ const properties = mountProperties(document.getElementById('mi-inspector')!, {
 - **`className`** añade tus clases al contenedor de la pieza; **`icon`** sustituye los iconos.
 - **Diálogos**: crear tarjeta, vincular y configuración pertenecen al host; las piezas solo avisan (`onNew`, `onLink`, `onSettings`).
 - **Marcado**: cada pieza tiene su función `…Markup` (`sidebarMarkup`, `propertiesMarkup`, `boardViewMarkup`…) por si prefieres componer el HTML y delegar los eventos tú mismo, como hace la aplicación de escritorio.
+
+#### Barra lateral configurable
+
+`mountSidebar` y `sidebarMarkup` aceptan, además del estado, cómo se compone la barra. Todo funciona también por `update()`:
+
+```ts
+const sidebar = mountSidebar(panel, {
+  workspace, view: 'board',
+  sections: ['search', 'views', 'epics'],   // orden; lo que no aparece no se pinta. Default: views, epics, status
+  views: ['knowledge', 'board'],            // orden de las vistas dentro de «Espacio». Default: las cinco
+  collapsible: ['views'],                   // con control de plegado, abiertas
+  collapsed: ['epics'],                     // con control de plegado, cerradas al inicio
+  slots: { views: miArbolDeDocumentos },    // tu propio elemento al final de una sección
+  onSearch(query) { /* solo con la sección "search" */ },
+});
+```
+
+- `sections`: `"search"` (buscador dentro de la barra, con `query` y `onSearch`), `"views"`, `"epics"` (incluye el borrador sin terminar) y `"status"` (estado de guardado).
+- `collapsible` y `collapsed` convierten la cabecera de la sección en un control de plegado. Lo que la persona abre o cierra se conserva en los siguientes `update()`. `search` y `status` no tienen cabecera, así que no se pliegan.
+- `slots`: el paquete adopta tu elemento tal cual (`appendChild`), dentro de la sección, y lo mantiene en su sitio en cada `update()`; no lo clona ni lo vuelve a crear. Si la sección se pliega, tu contenido se pliega con ella.
 
 La disposición es tuya: las piezas no fijan su posición en la página. La barra lateral y las propiedades traen su ancho de la aplicación (208 px y 238 px); cámbialo con CSS sobre `.sidebar` o `.inspector`.
 
