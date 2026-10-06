@@ -121,3 +121,38 @@ test('application pieces mount on their own, emit intents and never mutate host 
   assert.equal(container.children.length, 0);
   container.remove();
 });
+
+test('sidebar sections can be reordered, hidden, collapsed, searched and extended with host content', () => {
+  const workspace = applyOperations(emptyWorkspace(), { expectedRevision: 0, operations: [{ op: 'create', kind: 'epic', title: 'Épica' }] }).workspace;
+  const container = host();
+  const plain = components.sidebarMarkup(workspace);
+  assert.equal(plain, components.sidebarMarkup(workspace, { sections: ['views', 'epics', 'status'] }));
+  assert.equal(plain.includes('<details'), false);
+  const tree = document.createElement('ul'); tree.className = 'host-tree'; tree.textContent = 'Documentos';
+  const seen: string[] = [];
+  const sidebar = components.mountSidebar(container, { workspace, sections: ['search', 'views', 'epics'], views: ['knowledge', 'board'], collapsed: ['epics'], collapsible: ['views'], slots: { views: tree },
+    onSearch: value => seen.push(`search:${value}`), onNewEpic: () => seen.push('new-epic') });
+  const root = sidebar.element;
+  assert.deepEqual([...root.querySelectorAll<HTMLElement>('.sidebar > *')].map(e => e.tagName + (e.dataset.section ? `:${e.dataset.section}` : '')), ['LABEL', 'DETAILS:views', 'DETAILS:epics']);
+  assert.deepEqual([...root.querySelectorAll<HTMLElement>('[data-view]')].map(e => e.dataset.view), ['knowledge', 'board']);
+  assert.equal(root.querySelector('.local-status'), null);
+  assert.equal(root.querySelector<HTMLDetailsElement>('[data-section="views"]')!.open, true);
+  assert.equal(root.querySelector<HTMLDetailsElement>('[data-section="epics"]')!.open, false);
+  assert.equal(tree.parentElement!.dataset.slot, 'views');
+  assert.equal(tree.closest('[data-section="views"]') !== null, true);
+  const search = root.querySelector<HTMLInputElement>('[data-search]')!;
+  search.value = 'auth'; search.dispatchEvent(new dom.window.Event('input'));
+  assert.deepEqual(seen, ['search:auth']);
+  // The new-epic button lives in the summary; it must act without toggling the section.
+  root.querySelector<HTMLButtonElement>('summary [data-new-kind]')!.click();
+  assert.equal(seen.at(-1), 'new-epic');
+  assert.equal(root.querySelector<HTMLDetailsElement>('[data-section="epics"]')!.open, false);
+  // What the person opened survives later updates, and the host element is the same node.
+  const epics = root.querySelector<HTMLDetailsElement>('[data-section="epics"]')!;
+  epics.open = true; epics.dispatchEvent(new dom.window.Event('toggle'));
+  sidebar.update({ view: 'knowledge', query: 'auth' });
+  assert.equal(root.querySelector<HTMLDetailsElement>('[data-section="epics"]')!.open, true);
+  assert.equal(root.querySelector('.host-tree'), tree);
+  assert.equal(root.querySelector<HTMLInputElement>('[data-search]')!.value, 'auth');
+  sidebar.destroy(); container.remove();
+});

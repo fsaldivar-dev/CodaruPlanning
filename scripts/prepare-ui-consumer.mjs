@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync, readFileSync, cpSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
-const tarball = resolve(process.argv[2] || 'artifacts/fsaldivar.dev-planning-0.2.0.tgz');
+const tarball = resolve(process.argv[2] || 'artifacts/fsaldivar.dev-planning-0.3.0.tgz');
 const folder = mkdtempSync(join(tmpdir(), 'planning-ui-consumer-'));
 const manifest = JSON.parse(readFileSync('packages/planning/package.json', 'utf8'));
 const root = JSON.parse(readFileSync('package.json', 'utf8'));

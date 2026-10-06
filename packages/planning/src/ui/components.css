@@ -1133,4 +1133,34 @@
     mask: none;
     -webkit-mask: none;
   }
+  /* Sidebar sections the host made collapsible, plus its own slot and search. */
+  .sidebar-section > summary {
+    list-style: none;
+    cursor: default;
+  }
+  .sidebar-section > summary::-webkit-details-marker {
+    display: none;
+  }
+  .sidebar-section > summary::before {
+    content: "›";
+    display: inline-block;
+    width: 10px;
+    margin-right: 2px;
+    color: var(--muted);
+    transform: rotate(90deg);
+    transition: transform 0.15s;
+  }
+  .sidebar-section:not([open]) > summary::before {
+    transform: none;
+  }
+  .sidebar-section > summary:empty {
+    display: none;
+  }
+  .sidebar .search-field {
+    width: auto;
+    margin: 0 0 14px;
+  }
+  .sidebar-slot:empty {
+    display: none;
+  }
 }

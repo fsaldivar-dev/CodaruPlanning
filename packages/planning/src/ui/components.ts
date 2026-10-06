@@ -113,10 +113,42 @@ export function propertiesMarkup(ws: Workspace, item: Item, icon: IconRenderer =
       : ""
   }<label>Actualizado<span>${date(item.updatedAt)}</span></label>${relations ? relationsMarkup(ws, item, icon) : ""}${item.archived ? `<div class="document-state pending">Este elemento está archivado.</div><button data-restore="${item.id}">Restaurar</button>` : ""}</aside>`;
 }
-export type SidebarState = { view?: View; epicFilter?: string; saveLabel?: string; saveError?: boolean };
+export type SidebarSection = "search" | "views" | "epics" | "status";
+export const sidebarSections: SidebarSection[] = ["views", "epics", "status"];
+export const sidebarViews: View[] = ["board", "knowledge", "deliveries", "graph", "archive"];
+export type SidebarState = {
+  view?: View;
+  epicFilter?: string;
+  saveLabel?: string;
+  saveError?: boolean;
+  /** Current search text. Only shown when "search" is in sections. */
+  query?: string;
+  /** Sections and their order. Default: ["views", "epics", "status"]. A section left out is not rendered. */
+  sections?: SidebarSection[];
+  /** Views inside «Espacio» and their order. Default: all five. A view left out is not rendered. */
+  views?: View[];
+  /** Sections with a disclosure control (open at first). */
+  collapsible?: SidebarSection[];
+  /** Sections with a disclosure control that start closed. */
+  collapsed?: SidebarSection[];
+  /** Host elements appended at the end of a section, e.g. { views: myDocumentTree }. Adopted as they are, never cloned. */
+  slots?: Partial<Record<SidebarSection, HTMLElement>>;
+};
 export function sidebarMarkup(ws: Workspace, state: SidebarState = {}, icon: IconRenderer = defaultIcon) {
-  const { view = "board", epicFilter = "all", saveLabel = "Guardado localmente", saveError = false } = state;
-  return `<aside class="sidebar"><div class="sidebar-section-label">Espacio</div>${(Object.keys(viewTitles) as View[]).map(v => `<button class="sidebar-item ${view === v ? "selected" : ""}" data-view="${v}">${icon(v)}<span>${viewTitles[v]}</span>${v === "knowledge" ? `<small>${ws.items.filter(i => i.kind === "knowledge" && !i.archived).length}</small>` : ""}</button>`).join("")}<div class="sidebar-section-label section-split"><span>Épicas</span><button class="icon-button" data-new-kind="epic" aria-label="Nueva épica">${icon("new")}</button></div>${activeEpics(ws).map(e => `<div class="sidebar-epic"><button data-filter-epic="${e.id}" class="sidebar-item ${epicFilter === e.id ? "epic-selected" : ""}">${icon("epic")}<span>${esc(e.title)}</span></button><button class="epic-open" data-open="${e.id}" aria-label="Abrir épica ${esc(e.title)}">${icon("right")}</button></div>`).join("")}${ws.draft ? `<button class="sidebar-item draft-item" data-action="new">${icon("edit")}Borrador sin terminar</button>` : ""}<div class="sidebar-spacer"></div><div class="local-status">${icon(saveError ? "warning" : "verified")}<span id="save-label">${esc(saveLabel)}</span></div><button id="recover-storage" data-action="recover-storage" style="display:${saveError ? "block" : "none"}">Exportar copia y recargar</button></aside>`;
+  const { view = "board", epicFilter = "all", saveLabel = "Guardado localmente", saveError = false, query = "", sections = sidebarSections, views = sidebarViews, collapsible = [], collapsed = [], slots = {} } = state;
+  const section = (name: SidebarSection, label: string, body: string) => {
+    const slot = slots[name] ? `<div class="sidebar-slot" data-slot="${name}"></div>` : "";
+    // Sections without a heading have nothing to click on, so they never collapse.
+    if (!label || (!collapsible.includes(name) && !collapsed.includes(name))) return `${label}${body}${slot}`;
+    return `<details class="sidebar-section" data-section="${name}"${collapsed.includes(name) ? "" : " open"}>${label.replace(/^<div/, "<summary").replace(/<\/div>$/, "</summary>")}${body}${slot}</details>`;
+  };
+  const parts: Record<SidebarSection, () => string> = {
+    search: () => section("search", "", `<label class="search-field">${icon("search")}<input data-search placeholder="Buscar" aria-label="Buscar" value="${esc(query)}"></label>`),
+    views: () => section("views", `<div class="sidebar-section-label">Espacio</div>`, views.map(v => `<button class="sidebar-item ${view === v ? "selected" : ""}" data-view="${v}">${icon(v)}<span>${viewTitles[v]}</span>${v === "knowledge" ? `<small>${ws.items.filter(i => i.kind === "knowledge" && !i.archived).length}</small>` : ""}</button>`).join("")),
+    epics: () => section("epics", `<div class="sidebar-section-label section-split"><span>Épicas</span><button class="icon-button" data-new-kind="epic" aria-label="Nueva épica">${icon("new")}</button></div>`, `${activeEpics(ws).map(e => `<div class="sidebar-epic"><button data-filter-epic="${e.id}" class="sidebar-item ${epicFilter === e.id ? "epic-selected" : ""}">${icon("epic")}<span>${esc(e.title)}</span></button><button class="epic-open" data-open="${e.id}" aria-label="Abrir épica ${esc(e.title)}">${icon("right")}</button></div>`).join("")}${ws.draft ? `<button class="sidebar-item draft-item" data-action="new">${icon("edit")}Borrador sin terminar</button>` : ""}`),
+    status: () => section("status", "", `<div class="sidebar-spacer"></div><div class="local-status">${icon(saveError ? "warning" : "verified")}<span id="save-label">${esc(saveLabel)}</span></div><button id="recover-storage" data-action="recover-storage" style="display:${saveError ? "block" : "none"}">Exportar copia y recargar</button>`),
+  };
+  return `<aside class="sidebar">${sections.map(name => parts[name]()).join("")}</aside>`;
 }
 export type WindowToolbarState = { subtitle?: string; query?: string };
 export function windowToolbarMarkup(ws: Workspace, state: WindowToolbarState = {}, icon: IconRenderer = defaultIcon) {
@@ -341,15 +373,37 @@ export type SidebarOptions = Common & SidebarState & {
   onNewEpic?: () => void;
   onDraft?: () => void;
   onRecover?: () => void;
+  /** Only used by the "search" section. */
+  onSearch?: (query: string) => void;
 };
 export function mountSidebar(host: HTMLElement, options: SidebarOptions) {
-  return component(host, options, o => sidebarMarkup(o.workspace, o, o.icon), (b, o) => {
+  // What the person opened or closed wins over `collapsed` on later updates.
+  const toggled = new Map<SidebarSection, boolean>();
+  const state = (o: SidebarOptions): SidebarState => {
+    const collapsible = [...new Set([...(o.collapsible ?? []), ...(o.collapsed ?? [])])];
+    return { ...o, collapsible, collapsed: collapsible.filter(name => toggled.has(name) ? !toggled.get(name) : o.collapsed?.includes(name)) };
+  };
+  return component(host, options, o => sidebarMarkup(o.workspace, state(o), o.icon), (b, o) => {
     b.click("[data-view]", o.onView && (e => o.onView!(e.dataset.view as View)), true);
     b.click("[data-filter-epic]", o.onFilterEpic && (e => o.onFilterEpic!(e.dataset.filterEpic!)), true);
     b.click("[data-open]", o.onOpen && (e => o.onOpen!(e.dataset.open!)));
     b.click("[data-new-kind]", o.onNewEpic && (() => o.onNewEpic!()));
     b.click('[data-action="new"]', o.onDraft && (() => o.onDraft!()));
     b.click('[data-action="recover-storage"]', o.onRecover && (() => o.onRecover!()));
+    const search = b.one<HTMLInputElement>("[data-search]");
+    if (search) { search.readOnly = !o.onSearch; search.oninput = () => o.onSearch?.(search.value); }
+    for (const details of b.all<HTMLDetailsElement>("details[data-section]")) {
+      details.ontoggle = () => toggled.set(details.dataset.section as SidebarSection, details.open);
+      // A button inside the summary acts on its own; it must not toggle the section.
+      for (const button of details.querySelectorAll<HTMLButtonElement>("summary button")) {
+        const action = button.onclick;
+        button.onclick = event => { event.preventDefault(); event.stopPropagation(); action?.call(button, event); };
+      }
+    }
+    for (const placeholder of b.all("[data-slot]")) {
+      const slot = o.slots?.[placeholder.dataset.slot as SidebarSection];
+      if (slot && slot.parentElement !== placeholder) placeholder.append(slot);
+    }
   });
 }
 export type WindowToolbarOptions = Common & WindowToolbarState & { workspace: Workspace; onSearch?: (query: string) => void; onNew?: () => void; onSettings?: () => void; onToggleSidebar?: () => void };

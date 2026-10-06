@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 import { execFileSync } from "node:child_process";
 import assert from "node:assert/strict";
 const root = process.cwd();
-const tarball = resolve(process.argv[2] || "artifacts/fsaldivar.dev-planning-0.1.0.tgz");
+const tarball = resolve(process.argv[2] || "artifacts/fsaldivar.dev-planning-0.3.0.tgz");
 const folder = mkdtempSync(join(tmpdir(), "planning-consumer-"));
 try {
   writeFileSync(join(folder, "package.json"), JSON.stringify({ name: "planning-consumer-smoke", private: true, type: "module" }));
