@@ -63,8 +63,8 @@ La salida devuelve los IDs asignados a `refs`, las fichas afectadas y la nueva r
 | Operación | Campos principales |
 | --- | --- |
 | `create` | `kind`, `title`, `ref` opcional, `parentId`, `summary`, `markdown` o `content`, `criteria` |
-| `update` | `id`, `patch`: título, resumen, prioridad, padre, criterios, evidencia o contenido de trabajo |
-| `status` | `id`, `status`: `todo`, `doing`, `review`, `done` |
+| `update` | `id`, `patch`: título, resumen, prioridad, padre, criterios, evidencia, contenido de trabajo, `design`, `labels` o `file` |
+| `status` | `id`, `status`: `todo`, `doing`, `review`, `done`; `note` opcional con el motivo |
 | `link`, `unlink` | `source`, `target`, `type`: `depends`, `modifies`, `references` |
 | `draft` | `id` de conocimiento, `markdown` o `content`, `evidence` opcional |
 | `publish` | `id` de conocimiento, `evidence`, contenido opcional; publica el borrador pendiente si existe |
@@ -72,9 +72,35 @@ La salida devuelve los IDs asignados a `refs`, las fichas afectadas y la nueva r
 | `deliver` | `title`, `items` terminados, `notes` opcional |
 | `rename`, `settings` | `name` o `patch` de preferencias |
 
+El lote acepta `actor` («FranPlanner», «persona»…): firma cada entrada de actividad que produzcan sus operaciones.
+
 `schema` devuelve el contrato JSON completo. Markdown admite párrafos, títulos, listas, casillas, tablas, citas, separadores, enlaces, énfasis y bloques de código, incluidos `mermaid`. HTML arbitrario, imágenes y tachado se rechazan porque no están representados por el editor actual. También se admite el árbol `content` de ProseMirror, validado con el mismo esquema del editor. No se envían `markdown` y `content` juntos.
 
 El CLI escribe Mermaid dentro de los bloques documentales; Kairo lo previsualiza y permite editarlo en la app. La creación de documentos Kairo independientes de esos bloques no forma parte de esta versión del CLI.
+
+## Para agentes: diseño, etiquetas, actividad y vista compacta
+
+Pensado para agentes que crean y mueven tarjetas a partir de mockups aprobados y del código.
+
+- **`design`**: pantallas de un archivo de diseño, `[{ file, screen, name?, image? }]`. `file` e `image` son rutas relativas (nunca `http:` ni `data:`), hasta 20 referencias sin repetir `file`+`screen`. `itemsByDesign(ws, file, screen)` devuelve las fichas activas de una pantalla.
+- **`labels`**: hasta 8 por ficha; se normalizan a minúsculas con guiones (`"Ya construida"` → `ya-construida`), máximo 24 caracteres. En el tablero se filtran con `labels: [...]` o escribiendo `#etiqueta` en la búsqueda.
+- **`file`** (solo conocimiento): ruta del archivo que contiene el documento; `content` puede ser un extracto. Las listas muestran la ruta y avisan con `onOpenFile`.
+- **Actividad**: `status`, `update` de `design`/`labels`/`criteria`/`file`, `archive`, `restore`, `link` y `unlink` añaden una entrada `{ at, op, actor?, note?, from?, to?, fields? }` a `item.activity` (máximo 200, se descartan las más antiguas). El historial la muestra junto a las revisiones.
+- **`agentSnapshot(ws, { focus?, include? })`**: el tablero en pocos caracteres por tarjeta (`id`, `kind`, `status`, `title`, `parent`, `labels`, `criteria: "2/5"`, `design: n`) más `counts` y `relations`; solo la ficha en `focus` va completa (Markdown, criterios, evidencia, diseño, actividad). Con 70 tarjetas ocupa menos de un tercio que el espacio completo.
+- **`workspaceDiff(prev, next)`**: `{ created, archived, restored, status: [{ id, from, to }], updated: [{ id, fields }] }` para contar al agente solo lo que cambió.
+- Los enlaces Markdown relativos (`[0001](adr/0001-x.md)`, `../datos.md#campos`) se aceptan tal cual; `javascript:`, `data:` y cualquier otro esquema distinto de `http`, `https` y `mailto` se rechazan.
+
+```json
+{
+  "expectedRevision": 7, "actor": "FranPlanner",
+  "operations": [
+    { "op": "create", "ref": "login", "kind": "story", "title": "Pantalla de acceso",
+      "design": [{ "file": ".codaru/Mockups.codarumockup", "screen": "s-login", "name": "Inicio de sesión", "image": "mockups/login.png" }],
+      "labels": ["propuesta", "iPad"], "criteria": [{ "text": "Contraste AA", "checked": false }] },
+    { "op": "status", "id": "@login", "status": "doing", "note": "construida según Contraste" }
+  ]
+}
+```
 
 ## Reglas y concurrencia
 
@@ -163,16 +189,16 @@ La aplicación de escritorio se construye con estas mismas piezas, así que se v
 | `mountWindowToolbar` | Nombre del espacio, subtítulo, buscador, nueva tarjeta, configuración | `onSearch`, `onNew`, `onSettings`, `onToggleSidebar` |
 | `mountSidebar` | Vistas, épicas, borrador y estado de guardado; secciones configurables (ver abajo) | `onView`, `onFilterEpic`, `onOpen`, `onNewEpic`, `onDraft`, `onRecover`, `onSearch` |
 | `mountViewToolbar` | Título de la vista, Estados/Épicas, menú «Nueva tarjeta» | `onBoardMode`, `onCreate` |
-| `mountBoard` | Tablero con filtro por épica, columnas y arrastre | `onOpen`, `onCreate`, `onStatusChange`, `onEpicFilter`, `onDismissWelcome` |
-| `mountCard` | Una tarjeta | `onOpen` |
-| `mountKnowledgeList`, `mountDeliveries`, `mountArchive` | Listas de conocimiento, entregas y archivo | `onOpen`, `onCreate`, `onRestore` |
+| `mountBoard` | Tablero con filtro por épica y etiquetas, columnas y arrastre | `onOpen`, `onCreate`, `onStatusChange`, `onEpicFilter`, `onDismissWelcome`, `onOpenDesign` |
+| `mountCard` | Una tarjeta, con etiquetas y distintivo de diseño | `onOpen`, `onOpenDesign` |
+| `mountKnowledgeList`, `mountDeliveries`, `mountArchive` | Listas de conocimiento (con la ruta del archivo), entregas y archivo | `onOpen`, `onCreate`, `onRestore`, `onOpenFile` |
 | `mountItemHeader` | Volver, archivar, título y resumen | `onBack`, `onArchive`, `onTitle`, `onSummary` |
 | `mountDetailTabs` | Contenido, Subtareas, Contexto, Diagrama, Historial | `onTab` |
-| `mountProperties` | Tipo, estado, prioridad, padre, fecha y relaciones | `onStatus`, `onPriority`, `onParent`, `onRestore`, `onOpen`, `onLink`, `onUnlink` |
+| `mountProperties` | Tipo, estado, prioridad, padre, fecha, etiquetas, archivo, sección «Diseño» (miniatura con `resolveAsset`) y relaciones | `onStatus`, `onPriority`, `onParent`, `onRestore`, `onOpen`, `onLink`, `onUnlink`, `onOpenDesign`, `onOpenFile` |
 | `mountRelations` | Relaciones de una ficha | `onOpen`, `onLink`, `onUnlink` |
 | `mountCriteria` | Criterios de aceptación | `onToggle`, `onEdit`, `onRemove`, `onAdd` |
 | `mountEvidence` | Resultado y verificación | `onChange`, `onPublish` |
-| `mountSubtasks`, `mountContext`, `mountHistory`, `mountDocumentState` | Subtareas, contexto para IA, revisiones y estado del documento | `onOpen`, `onCreate`, `onCopy`, `onExport`, `onOpenRevision` |
+| `mountSubtasks`, `mountContext`, `mountHistory`, `mountDocumentState` | Subtareas, contexto para IA, revisiones y actividad en orden, y estado del documento | `onOpen`, `onCreate`, `onCopy`, `onExport`, `onOpenRevision` |
 
 ```ts
 import { mountSidebar, mountProperties } from '@fsaldivar.dev/planning/components';
@@ -244,6 +270,7 @@ Los estilos se limitan al contenedor `.codaru-planning` que crea cada pieza y nu
 | `--planning-gutter-width` | Ancho del asa lateral de bloques |
 | `--planning-code-keyword`, `--planning-code-title`, `--planning-code-string`, `--planning-code-number` | Colores del código |
 | `--planning-color-scheme` | `light` o `dark` para los controles nativos |
+| `--planning-label-1` … `--planning-label-8` | Tonos de las etiquetas; cada etiqueta elige uno por hash |
 
 Para usar tus propios iconos, pasa `icon: nombre => '<svg…>'` al editor o a cualquier pieza; `iconNames` lista los nombres que se piden. El resultado se inserta como HTML de confianza: no interpoles en él texto del documento ni del usuario.
 

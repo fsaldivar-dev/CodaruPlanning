@@ -17,6 +17,9 @@
   --success: var(--planning-success, #327755);
   --warning: var(--planning-warning, #a46116);
   --font: var(--planning-font, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+  /* Eight label tones; a label picks one by hash. Override any of them. */
+  --planning-label-1: #4f6fd8; --planning-label-2: #2e8b6f; --planning-label-3: #b9622a; --planning-label-4: #8a56c9;
+  --planning-label-5: #c23b6f; --planning-label-6: #2a8fa6; --planning-label-7: #8c7a1f; --planning-label-8: #5f6b7a;
   /* Component sizes are multiples of --rem (13px in the desktop application). */
   --rem: var(--planning-font-size, 13px);
   color: var(--text);

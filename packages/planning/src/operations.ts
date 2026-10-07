@@ -1,16 +1,25 @@
 import {
   createItem, addRelation, setStatus, reviseKnowledge, markAffected, descendants,
-  completionIssues, defaultSettings, id, type Workspace, type RichNode, type Kind,
-  type Status, type Relation, type Criterion, type Settings,
+  completionIssues, defaultSettings, id, normalizeLabels, validateDesignRefs, validateFile, recordActivity,
+  type Workspace, type RichNode, type Kind, type Status, type Relation, type Criterion, type Settings, type DesignRef,
 } from "../../planning-core/src/index.js";
 import { fromMarkdown, validateDocument, validateDocuments } from "./documents.js";
 
 export type ContentInput = { markdown?: string; content?: RichNode };
-export type ItemPatch = ContentInput & { title?: string; summary?: string; evidence?: string; priority?: "normal" | "high"; parentId?: string | null; criteria?: (Omit<Criterion, "id"> & { id?: string })[] };
+export type ItemPatch = ContentInput & {
+  title?: string; summary?: string; evidence?: string; priority?: "normal" | "high"; parentId?: string | null;
+  criteria?: (Omit<Criterion, "id"> & { id?: string })[];
+  /** Screens of a design file. null removes them all. */
+  design?: DesignRef[] | null;
+  /** Normalized on write: lowercase, hyphens for spaces, no duplicates. null removes them all. */
+  labels?: string[] | null;
+  /** Knowledge only: path of the file that holds the document. null detaches it. */
+  file?: string | null;
+};
 export type Operation =
   | ({ op: "create"; ref?: string; kind: Kind; title: string } & Omit<ItemPatch, "title">)
   | { op: "update"; id: string; patch: ItemPatch }
-  | { op: "status"; id: string; status: Status }
+  | { op: "status"; id: string; status: Status; /** Why, e.g. «construida según Contraste». */ note?: string }
   | { op: "link" | "unlink"; source: string; target: string; type: Relation["type"] }
   | ({ op: "draft"; id: string; evidence?: string } & ContentInput)
   | ({ op: "publish"; id: string; evidence: string; source?: string } & ContentInput)
@@ -18,7 +27,8 @@ export type Operation =
   | { op: "deliver"; title: string; items: string[]; notes?: string }
   | { op: "settings"; patch: Partial<Settings> }
   | { op: "rename"; name: string };
-export type Batch = { expectedRevision: number; operations: Operation[] };
+/** `actor` signs every activity entry the batch produces, e.g. "FranPlanner" or "persona". */
+export type Batch = { expectedRevision: number; operations: Operation[]; actor?: string };
 export type ApplyResult = { workspace: Workspace; refs: Record<string, string>; affectedIds: string[] };
 
 export function emptyWorkspace(name = "Mi espacio"): Workspace {
@@ -39,12 +49,14 @@ function content(input: ContentInput): RichNode | undefined {
   if (has(input, "markdown")) return fromMarkdown(input.markdown!);
   if (has(input, "content")) return validateDocument(input.content!);
 }
-const patchKeys = ["title", "summary", "evidence", "priority", "parentId", "criteria", "content", "markdown"];
+const patchKeys = ["title", "summary", "evidence", "priority", "parentId", "criteria", "content", "markdown", "design", "labels", "file"];
 
 /** Clone first: failed operations never partly modify the caller's workspace. */
 export function applyOperations(original: Workspace, batch: Batch): ApplyResult {
   validateDocuments(original);
-  exact(batch, ["expectedRevision", "operations"]);
+  exact(batch, ["expectedRevision", "operations", "actor"]);
+  if (batch.actor !== undefined) { text(batch.actor, "actor", true); if (batch.actor.length > 80) throw new Error("actor: hasta 80 caracteres."); }
+  const actor = batch.actor;
   if (!Number.isSafeInteger(batch.expectedRevision) || batch.expectedRevision !== original.revision)
     throw new Error(`Conflicto de revisión: se esperaba ${batch.expectedRevision}, actual ${original.revision}. Vuelve a leer antes de escribir.`);
   if (!Array.isArray(batch.operations) || batch.operations.length < 1 || batch.operations.length > 500) throw new Error("Envía entre 1 y 500 operaciones.");
@@ -92,7 +104,16 @@ export function applyOperations(original: Workspace, batch: Batch): ApplyResult 
         return { id: c.id ?? id(), text: c.text, checked: c.checked };
       });
     }
+    const logged: string[] = [];
+    if (has(patch, "design")) { item.design = patch.design === null ? undefined : validateDesignRefs(patch.design); logged.push("design"); }
+    if (has(patch, "labels")) { item.labels = patch.labels === null ? undefined : normalizeLabels(patch.labels); logged.push("labels"); }
+    if (has(patch, "file")) {
+      if (item.kind !== "knowledge") throw new Error("Solo una ficha de conocimiento se respalda en un archivo.");
+      item.file = patch.file === null ? undefined : validateFile(patch.file); logged.push("file");
+    }
+    if (has(patch, "criteria")) logged.push("criteria");
     const body = content(patch); if (body) item.content = body;
+    if (!creating && logged.length) recordActivity(item, { op: "update", actor, fields: logged });
     touch(item.id);
   };
   batch.operations.forEach((op, index) => {
@@ -111,10 +132,14 @@ export function applyOperations(original: Workspace, batch: Batch): ApplyResult 
         }
         case "update": exact(op, ["op", "id", "patch"]); patchItem(op.id, op.patch); break;
         case "status": {
-          exact(op, ["op", "id", "status"]);
+          exact(op, ["op", "id", "status", "note"]);
           if (!["todo", "doing", "review", "done"].includes(op.status)) throw new Error("Estado inválido.");
+          if (op.note !== undefined) { text(op.note, "note"); if (op.note.length > 500) throw new Error("note: hasta 500 caracteres."); }
           const item = get(op.id); if (item.archived) throw new Error("Restaura la ficha primero.");
-          setStatus(ws, item, op.status); touch(item.id, false); break;
+          const from = item.status;
+          setStatus(ws, item, op.status);
+          if (from !== op.status) recordActivity(item, { op: "status", actor, note: op.note || undefined, from, to: op.status });
+          touch(item.id, false); break;
         }
         case "link": case "unlink": {
           exact(op, ["op", "source", "target", "type"]);
@@ -124,6 +149,8 @@ export function applyOperations(original: Workspace, batch: Batch): ApplyResult 
             if (source.archived || target.archived) throw new Error("Restaura las fichas antes de vincularlas.");
             addRelation(ws, source.id, target.id, op.type);
           } else ws.relations = ws.relations.filter(r => !(r.source === source.id && r.target === target.id && r.type === op.type));
+          recordActivity(source, { op: op.op, actor, note: op.type, to: target.id });
+          recordActivity(target, { op: op.op, actor, note: op.type, from: source.id });
           touch(source.id, false); touch(target.id, false); break;
         }
         case "draft": case "publish": {
@@ -144,10 +171,10 @@ export function applyOperations(original: Workspace, batch: Batch): ApplyResult 
         }
         case "archive": case "restore": {
           exact(op, ["op", "id"]); const item = get(op.id);
-          if (op.op === "archive") for (const entry of [item, ...descendants(ws, item.id)]) { entry.archived = true; touch(entry.id, false); }
+          if (op.op === "archive") for (const entry of [item, ...descendants(ws, item.id)]) { entry.archived = true; recordActivity(entry, { op: "archive", actor }); touch(entry.id, false); }
           else {
             if (item.parentId && get(item.parentId).archived) throw new Error("Restaura primero el padre.");
-            item.archived = false; touch(item.id, false);
+            item.archived = false; recordActivity(item, { op: "restore", actor }); touch(item.id, false);
           }
           break;
         }

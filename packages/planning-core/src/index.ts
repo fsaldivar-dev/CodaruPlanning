@@ -14,6 +14,13 @@ export type Relation = {
   type: "depends" | "modifies" | "references";
 };
 export type Criterion = { id: string; text: string; checked: boolean };
+/** A screen of a design file (mockup). `image` is a relative path to a reference PNG. */
+export type DesignRef = { file: string; screen: string; name?: string; image?: string };
+/** One change on an item, for auditing who moved what and why. */
+export type ActivityEntry = { at: string; op: string; actor?: string; note?: string; from?: string; to?: string; fields?: string[] };
+export const activityLimit = 200;
+export const labelLimits = { perItem: 8, length: 24 };
+export const designLimits = { perItem: 20, path: 300, name: 120 };
 export type Revision = {
   revision: number;
   at: string;
@@ -42,6 +49,11 @@ export type Item = {
   pendingChange?: RichNode;
   pendingEvidence?: string;
   diagram?: unknown;
+  design?: DesignRef[];
+  labels?: string[];
+  activity?: ActivityEntry[];
+  /** Knowledge only: the document lives in this file and `content` may be an excerpt. */
+  file?: string;
 };
 export type Settings = {
   theme: "system" | "light" | "dark";
@@ -437,6 +449,97 @@ export function neighbors(ws: Workspace, key: string) {
       ),
     }));
 }
+/** Labels are compared normalized: lowercase, trimmed, spaces as hyphens, bounded length. */
+export function normalizeLabel(value: unknown): string {
+  if (typeof value !== "string") throw new Error("Cada etiqueta debe ser texto.");
+  const label = value.trim().toLocaleLowerCase().replace(/\s+/g, "-").replace(/^#/, "");
+  if (!label || label.length > labelLimits.length || /[\s#,]/.test(label))
+    throw new Error(`Etiqueta inválida: «${value}». Hasta ${labelLimits.length} caracteres, sin espacios ni «#».`);
+  return label;
+}
+export function normalizeLabels(value: unknown): string[] {
+  if (!Array.isArray(value)) throw new Error("labels debe ser una lista de textos.");
+  const labels = [...new Set(value.map(normalizeLabel))];
+  if (labels.length > labelLimits.perItem) throw new Error(`Hasta ${labelLimits.perItem} etiquetas por ficha.`);
+  return labels;
+}
+const relativePath = (value: unknown, name: string, max: number) => {
+  if (typeof value !== "string" || !value.trim() || value.length > max) throw new Error(`${name}: ruta de hasta ${max} caracteres requerida.`);
+  if (/^[a-z][a-z0-9+.-]*:/i.test(value) || value.startsWith("//")) throw new Error(`${name}: solo rutas relativas, sin esquema (http:, data:…).`);
+  return value;
+};
+export function validateDesignRefs(value: unknown): DesignRef[] {
+  if (!Array.isArray(value)) throw new Error("design debe ser una lista de referencias { file, screen }.");
+  if (value.length > designLimits.perItem) throw new Error(`Hasta ${designLimits.perItem} referencias de diseño por ficha.`);
+  const seen = new Set<string>();
+  return value.map((ref): DesignRef => {
+    if (!ref || typeof ref !== "object" || Object.keys(ref).some(key => !["file", "screen", "name", "image"].includes(key)))
+      throw new Error("Referencia de diseño inválida: usa file, screen y opcionalmente name e image.");
+    const file = relativePath(ref.file, "design.file", designLimits.path);
+    if (typeof ref.screen !== "string" || !ref.screen.trim() || ref.screen.length > designLimits.path) throw new Error("design.screen: texto de hasta 300 caracteres requerido.");
+    if (ref.name !== undefined && (typeof ref.name !== "string" || ref.name.length > designLimits.name)) throw new Error("design.name: texto de hasta 120 caracteres.");
+    const key = `${file}#${ref.screen}`;
+    if (seen.has(key)) throw new Error(`Referencia de diseño repetida: ${key}.`);
+    seen.add(key);
+    return { file, screen: ref.screen, ...(ref.name !== undefined ? { name: ref.name } : {}), ...(ref.image !== undefined ? { image: relativePath(ref.image, "design.image", designLimits.path) } : {}) };
+  });
+}
+export function validateFile(value: unknown): string { return relativePath(value, "file", designLimits.path); }
+/** Active items that reference a screen of a design file. */
+export function itemsByDesign(ws: Workspace, file: string, screen: string): Item[] {
+  return ws.items.filter(i => !i.archived && i.design?.some(ref => ref.file === file && ref.screen === screen));
+}
+/** Appends to the item's log, keeping the newest `activityLimit` entries. */
+export function recordActivity(item: Item, entry: Omit<ActivityEntry, "at"> & { at?: string }): void {
+  const clean = Object.fromEntries(Object.entries({ at: entry.at ?? new Date().toISOString(), ...entry }).filter(([, v]) => v !== undefined)) as ActivityEntry;
+  item.activity = [...(item.activity ?? []), clean].slice(-activityLimit);
+}
+export type AgentSnapshot = {
+  name: string; revision: number; counts: Record<Status, number>;
+  items: { id: string; kind: Kind; status: Status; title: string; parent?: string; labels?: string[]; criteria?: string; design?: number }[];
+  relations: [string, Relation["type"], string][];
+  focus?: { id: string; kind: Kind; status: Status; title: string; summary: string; markdown: string; criteria: Criterion[]; evidence: string; labels: string[]; design: DesignRef[]; activity: ActivityEntry[]; relations: { direction: string; type: Relation["type"]; id?: string; title?: string }[] };
+};
+/** The board in a few characters per card, for an agent's context. Only `focus` carries full content. */
+export function agentSnapshot(ws: Workspace, opts: { focus?: string; include?: ("criteria" | "design" | "labels")[] } = {}): AgentSnapshot {
+  const include = new Set(opts.include ?? ["criteria", "design", "labels"]);
+  const active = ws.items.filter(i => !i.archived);
+  const counts = Object.fromEntries(statuses.map(([status]) => [status, active.filter(i => i.status === status).length])) as Record<Status, number>;
+  const focus = opts.focus ? active.find(i => i.id === opts.focus) : undefined;
+  return {
+    name: ws.name, revision: ws.revision, counts,
+    items: active.map(i => ({
+      id: i.id, kind: i.kind, status: i.status, title: i.title,
+      ...(i.parentId ? { parent: i.parentId } : {}),
+      ...(include.has("labels") && i.labels?.length ? { labels: i.labels } : {}),
+      ...(include.has("criteria") && i.criteria.length ? { criteria: `${i.criteria.filter(c => c.checked).length}/${i.criteria.length}` } : {}),
+      ...(include.has("design") && i.design?.length ? { design: i.design.length } : {}),
+    })),
+    relations: ws.relations.filter(r => active.some(i => i.id === r.source) && active.some(i => i.id === r.target)).map(r => [r.source, r.type, r.target]),
+    ...(focus ? { focus: {
+      id: focus.id, kind: focus.kind, status: focus.status, title: focus.title, summary: focus.summary, markdown: markdown(focus.content),
+      criteria: focus.criteria, evidence: focus.evidence, labels: focus.labels ?? [], design: focus.design ?? [], activity: focus.activity ?? [],
+      relations: neighbors(ws, focus.id).map(n => ({ direction: n.direction, type: n.relation, id: n.item?.id, title: n.item?.title })),
+    } } : {}),
+  };
+}
+export type WorkspaceDiff = { created: string[]; archived: string[]; restored: string[]; status: { id: string; from: Status; to: Status }[]; updated: { id: string; fields: string[] }[] };
+const diffFields = ["title", "summary", "content", "criteria", "priority", "parentId", "evidence", "design", "labels", "file", "freshness", "revision"] as const;
+/** What changed between two readings of the same workspace, by id. */
+export function workspaceDiff(prev: Workspace, next: Workspace): WorkspaceDiff {
+  const diff: WorkspaceDiff = { created: [], archived: [], restored: [], status: [], updated: [] };
+  const before = new Map(prev.items.map(i => [i.id, i]));
+  for (const item of next.items) {
+    const old = before.get(item.id);
+    if (!old) { diff.created.push(item.id); continue; }
+    if (!old.archived && item.archived) diff.archived.push(item.id);
+    if (old.archived && !item.archived) diff.restored.push(item.id);
+    if (old.status !== item.status) diff.status.push({ id: item.id, from: old.status, to: item.status });
+    const fields = diffFields.filter(field => JSON.stringify(old[field] ?? null) !== JSON.stringify(item[field] ?? null));
+    if (fields.length) diff.updated.push({ id: item.id, fields: [...fields] });
+  }
+  return diff;
+}
 export function contextRecords(ws: Workspace) {
   return ws.items
     .filter((i) => !i.archived)
@@ -449,6 +552,9 @@ export function contextRecords(ws: Workspace) {
       freshness: i.freshness,
       updatedAt: i.updatedAt,
       parentId: i.parentId,
+      ...(i.labels?.length ? { labels: i.labels } : {}),
+      ...(i.design?.length ? { design: i.design } : {}),
+      ...(i.file ? { file: i.file } : {}),
       relations: neighbors(ws, i.id).map((n) => ({
         type: n.relation,
         direction: n.direction,
@@ -458,7 +564,7 @@ export function contextRecords(ws: Workspace) {
     }));
 }
 export function exportItem(ws: Workspace, item: Item): string {
-  return `# ${item.title}\n\nID: ${item.id}\nTipo: ${kindLabels[item.kind]}\nRevisión: ${item.revision}\nEstado: ${item.freshness || item.status}\nActualizado: ${item.updatedAt}\n\n${item.summary ? item.summary + "\n\n" : ""}${markdown(item.content)}${item.criteria.length ? "## Criterios de aceptación\n" + item.criteria.map((c) => `- [${c.checked ? "x" : " "}] ${c.text}`).join("\n") + "\n\n" : ""}${item.evidence ? "## Verificación\n" + item.evidence + "\n\n" : ""}## Relaciones\n${neighbors(
+  return `# ${item.title}\n\nID: ${item.id}\nTipo: ${kindLabels[item.kind]}\nRevisión: ${item.revision}\nEstado: ${item.freshness || item.status}\nActualizado: ${item.updatedAt}\n${item.labels?.length ? `Etiquetas: ${item.labels.join(", ")}\n` : ""}${item.file ? `Archivo: ${item.file}\n` : ""}${item.design?.length ? `Diseño: ${item.design.map((d) => `${d.file}#${d.screen}${d.name ? ` (${d.name})` : ""}`).join(", ")}\n` : ""}\n${item.summary ? item.summary + "\n\n" : ""}${markdown(item.content)}${item.criteria.length ? "## Criterios de aceptación\n" + item.criteria.map((c) => `- [${c.checked ? "x" : " "}] ${c.text}`).join("\n") + "\n\n" : ""}${item.evidence ? "## Verificación\n" + item.evidence + "\n\n" : ""}## Relaciones\n${neighbors(
     ws,
     item.id,
   )
@@ -549,6 +655,13 @@ export function validateWorkspace(data: unknown): asserts data is Workspace {
       typeof i.pendingEvidence !== "string"
     )
       fail("La verificación del borrador no es válida.");
+    if (i.labels !== undefined && (!Array.isArray(i.labels) || i.labels.length > labelLimits.perItem || i.labels.some(l => typeof l !== "string" || !l || l.length > labelLimits.length) || new Set(i.labels).size !== i.labels.length))
+      fail("Las etiquetas de una ficha no son válidas.");
+    if (i.design !== undefined) { try { validateDesignRefs(i.design); } catch { fail("Las referencias de diseño no son válidas."); } }
+    if (i.file !== undefined && (i.kind !== "knowledge" || typeof i.file !== "string" || !i.file || i.file.length > designLimits.path))
+      fail("El archivo de una ficha de conocimiento no es válido.");
+    if (i.activity !== undefined && (!Array.isArray(i.activity) || i.activity.length > activityLimit || i.activity.some(a => !a || !dateOK(a.at) || typeof a.op !== "string" || [a.actor, a.note, a.from, a.to].some(v => v !== undefined && typeof v !== "string") || (a.fields !== undefined && (!Array.isArray(a.fields) || a.fields.some(f => typeof f !== "string"))))))
+      fail("La actividad de una ficha no es válida.");
     if (
       i.history.some(
         (r) =>

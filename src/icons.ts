@@ -44,6 +44,7 @@ const map: Record<string, string> = {
   system: "desktopcomputer",
   delete: "trash",
   sidebar: "sidebar.left",
+  design: "paintpalette",
 };
 export function icon(name: string) {
   return `<span class="symbol" aria-hidden="true" style="--symbol:url('/symbols/${map[name] || map.document}.png')"></span>`;
