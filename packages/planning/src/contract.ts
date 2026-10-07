@@ -5,17 +5,26 @@ const content = {
 };
 const kinds = ["idea", "epic", "story", "task", "knowledge"];
 const criterion = { type: "object", additionalProperties: false, required: ["text", "checked"], properties: { id: str, text: { type: "string", minLength: 1 }, checked: { type: "boolean" } } };
-const patch = { title: str, summary: str, evidence: str, priority: { enum: ["normal", "high"] }, parentId: { type: ["string", "null"] }, criteria: { type: "array", items: criterion }, ...content };
+const path = { type: "string", minLength: 1, maxLength: 300, description: "Ruta relativa, sin esquema (http:, data:…)." };
+const design = { type: "object", additionalProperties: false, required: ["file", "screen"], properties: { file: path, screen: { type: "string", minLength: 1, maxLength: 300 }, name: { type: "string", maxLength: 120 }, image: { ...path, description: "PNG de referencia, ruta relativa." } } };
+const patch = {
+  title: str, summary: str, evidence: str, priority: { enum: ["normal", "high"] }, parentId: { type: ["string", "null"] }, criteria: { type: "array", items: criterion },
+  design: { type: ["array", "null"], maxItems: 20, items: design, description: "Pantallas de diseño (mockup) de esta ficha; null las quita." },
+  labels: { type: ["array", "null"], maxItems: 8, items: { type: "string", minLength: 1, maxLength: 24 }, description: "Etiquetas; se normalizan a minúsculas con guiones. null las quita." },
+  file: { type: ["string", "null"], maxLength: 300, description: "Solo conocimiento: archivo que contiene el documento; content puede ser un extracto." },
+  ...content,
+};
 const operation = (name: string, properties: object, required: string[]) => ({ type: "object", additionalProperties: false, required: ["op", ...required], properties: { op: { const: name }, ...properties } });
 export const batchSchema = {
   $schema: "https://json-schema.org/draft/2020-12/schema", title: "Codaru Planning transaction", type: "object", additionalProperties: false,
   required: ["expectedRevision", "operations"],
   properties: {
+    actor: { type: "string", minLength: 1, maxLength: 80, description: "Quién firma la actividad de este lote: «FranPlanner», «persona»…" },
     expectedRevision: { type: "integer", minimum: 0, description: "workspaceRevision de la última lectura; un conflicto no modifica el archivo." },
     operations: { type: "array", minItems: 1, maxItems: 500, items: { oneOf: [
       operation("create", { kind: { enum: kinds }, ref: { type: "string", pattern: "^[a-zA-Z0-9_-]{1,80}$" }, ...patch }, ["kind", "title"]),
       operation("update", { id: key, patch: { type: "object", additionalProperties: false, properties: patch } }, ["id", "patch"]),
-      operation("status", { id: key, status: { enum: ["todo", "doing", "review", "done"] } }, ["id", "status"]),
+      operation("status", { id: key, status: { enum: ["todo", "doing", "review", "done"] }, note: { type: "string", maxLength: 500, description: "Motivo del cambio, queda en la actividad de la ficha." } }, ["id", "status"]),
       ...["link", "unlink"].map(op => operation(op, { source: key, target: key, type: { enum: ["depends", "modifies", "references"] } }, ["source", "target", "type"])),
       operation("draft", { id: key, evidence: str, ...content }, ["id"]),
       operation("publish", { id: key, evidence: { type: "string", minLength: 1 }, source: key, ...content }, ["id", "evidence"]),

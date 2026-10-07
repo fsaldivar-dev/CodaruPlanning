@@ -2,6 +2,8 @@ import { marked, type Token, type Tokens } from "marked";
 import { validContent } from "../../planning-core/src/schema.js";
 import { paragraph, rich, validateWorkspace, type RichNode, type Workspace } from "../../planning-core/src/index.js";
 
+/** http(s), mailto and relative paths (`adr/0001.md`, `../datos.md#campos`). Never javascript:, data: or any other scheme. */
+export const safeHref = (href: unknown) => typeof href === "string" && !!href && !/[\s]/.test(href) && (/^(https?:|mailto:)/i.test(href) || (!/^[a-z][a-z0-9+.-]*:/i.test(href) && !href.startsWith("//")));
 /** Accept the same document schema as the visual editor, with bounded nesting. */
 export function validateDocument(value: RichNode): RichNode {
   const stack: [RichNode, number][] = [[value, 0]];
@@ -12,8 +14,8 @@ export function validateDocument(value: RichNode): RichNode {
       throw new Error("Documento demasiado profundo o con demasiados bloques.");
     if (node.content !== undefined && !Array.isArray(node.content)) throw new Error("Contenido de bloque inválido.");
     for (const mark of node.marks || []) {
-      if (mark.type === "link" && !/^(https?:|mailto:)/i.test(String(mark.attrs?.href)))
-        throw new Error("Los enlaces deben usar http, https o mailto.");
+      if (mark.type === "link" && !safeHref(mark.attrs?.href))
+        throw new Error("Los enlaces deben usar http, https, mailto o una ruta relativa.");
     }
     for (const child of node.content || []) stack.push([child, depth + 1]);
   }
@@ -36,7 +38,7 @@ function inline(tokens: Token[], marks: NonNullable<RichNode["marks"]> = []): Ri
       return inline((token as Tokens.Strong).tokens, [...marks, { type: token.type }]);
     if (token.type === "link") {
       const link = token as Tokens.Link;
-      if (!/^(https?:|mailto:)/i.test(link.href)) throw new Error("Enlace Markdown no compatible.");
+      if (!safeHref(link.href)) throw new Error(`Enlace Markdown no compatible: ${link.href.slice(0, 40)}. Usa http, https, mailto o una ruta relativa.`);
       return inline(link.tokens, [...marks, { type: "link", attrs: { href: link.href, title: link.title || null } }]);
     }
     if (token.type === "br") return [{ type: "hard_break" }];

@@ -1,4 +1,4 @@
-import { blockers, descendants, neighbors, plain, kindLabels, statuses, type Item, type Kind, type Workspace, type Status } from "../../../planning-core/src/index.js";
+import { blockers, descendants, neighbors, plain, kindLabels, statuses, type Item, type Kind, type Workspace, type Status, type DesignRef } from "../../../planning-core/src/index.js";
 import { icon as defaultIcon, esc, type IconRenderer } from "./icons.js";
 export { icon, iconNames, type IconRenderer } from "./icons.js";
 
@@ -24,14 +24,27 @@ const within = (ws: Workspace, item: Item, key: string) => {
   }
   return false;
 };
-export const matchesQuery = (item: Item, query = "") => !query || `${item.title} ${item.summary} ${plain(item.content)}`.toLocaleLowerCase().includes(query.toLocaleLowerCase());
+/** `#etiqueta` tokens must all be present; the rest of the query is matched as text. */
+export const matchesQuery = (item: Item, query = "", labels: string[] = []) => {
+  const tokens = query.split(/\s+/).filter(Boolean);
+  const required = [...labels, ...tokens.filter(t => t.startsWith("#") && t.length > 1).map(t => t.slice(1).toLocaleLowerCase())];
+  if (required.some(label => !item.labels?.includes(label))) return false;
+  const textQuery = tokens.filter(t => !t.startsWith("#") || t.length === 1).join(" ");
+  return !textQuery || `${item.title} ${item.summary} ${plain(item.content)}`.toLocaleLowerCase().includes(textQuery.toLocaleLowerCase());
+};
+/** Labels take one of eight host-themeable tones (--planning-label-1…8), chosen by hash. */
+export const labelTone = (label: string) => [...label].reduce((sum, char) => (sum * 31 + char.charCodeAt(0)) % 8, 7) + 1;
+export const labelChip = (label: string) => `<span class="label-chip" data-label="${esc(label)}" style="--label-tone: var(--planning-label-${labelTone(label)})">${esc(label)}</span>`;
+export const labelsMarkup = (labels: string[] | undefined) => labels?.length ? `<span class="label-list">${labels.map(labelChip).join("")}</span>` : "";
+export const designName = (ref: DesignRef) => ref.name || ref.screen;
+export type AssetResolver = (path: string) => string | undefined;
 
 export function cardMarkup(ws: Workspace, item: Item, icon: IconRenderer = defaultIcon) {
   const parent = item.parentId ? itemBy(ws, item.parentId) : undefined;
   const remaining = blockers(ws, item);
   const docs = ws.relations.filter(r => r.source === item.id && r.type === "modifies").map(r => itemBy(ws, r.target));
   const children = descendants(ws, item.id);
-  return `<article class="work-card" draggable="true" data-drag="${esc(item.id)}"><button class="card-main" data-open="${esc(item.id)}" aria-label="Abrir ${esc(item.title)}"><span class="card-meta"><span>${icon(item.kind)}${kindLabels[item.kind]}</span><span>${shortId(ws, item)}</span></span><strong>${esc(item.title)}</strong>${item.summary ? `<p>${esc(item.summary)}</p>` : ""}${remaining.length ? `<span class="dependency">${icon("link")}${remaining.length} dependencia${remaining.length === 1 ? "" : "s"} pendiente${remaining.length === 1 ? "" : "s"}</span>` : ""}${parent ? `<span class="epic-chip">${icon("epic")}${esc(parent.title)}</span>` : ""}<span class="card-footer"><span>${icon("task")}${item.criteria.filter(c => c.checked).length}/${item.criteria.length}${children.length ? ` · ${children.filter(i => i.status === "done").length}/${children.length} subtareas` : ""}</span>${docs.length ? `<span class="${docs.some(d => d.freshness !== "current") ? "pending" : "current"}">${icon("document")}${docs.some(d => d.freshness !== "current") ? "Revisar" : "Vigente"}</span>` : ""}${item.priority === "high" ? '<span class="high">Alta</span>' : ""}</span></button></article>`;
+  return `<article class="work-card" draggable="true" data-drag="${esc(item.id)}"><button class="card-main" data-open="${esc(item.id)}" aria-label="Abrir ${esc(item.title)}"><span class="card-meta"><span>${icon(item.kind)}${kindLabels[item.kind]}</span><span>${shortId(ws, item)}</span></span><strong>${esc(item.title)}</strong>${item.summary ? `<p>${esc(item.summary)}</p>` : ""}${labelsMarkup(item.labels)}${remaining.length ? `<span class="dependency">${icon("link")}${remaining.length} dependencia${remaining.length === 1 ? "" : "s"} pendiente${remaining.length === 1 ? "" : "s"}</span>` : ""}${parent ? `<span class="epic-chip">${icon("epic")}${esc(parent.title)}</span>` : ""}<span class="card-footer"><span>${icon("task")}${item.criteria.filter(c => c.checked).length}/${item.criteria.length}${children.length ? ` · ${children.filter(i => i.status === "done").length}/${children.length} subtareas` : ""}</span>${docs.length ? `<span class="${docs.some(d => d.freshness !== "current") ? "pending" : "current"}">${icon("document")}${docs.some(d => d.freshness !== "current") ? "Revisar" : "Vigente"}</span>` : ""}${item.design?.length ? `<span class="design-badge" data-open-design="0" title="${esc(item.design.map(d => `${d.file}#${d.screen}`).join("\n"))}">${icon("design")}${item.design.length === 1 ? esc(designName(item.design[0])) : `${item.design.length} pantallas`}</span>` : ""}${item.priority === "high" ? '<span class="high">Alta</span>' : ""}</span></button></article>`;
 }
 export function boardMarkup(ws: Workspace, items: Item[], icon: IconRenderer = defaultIcon) {
   return `<div class="board-grid">${statuses.map(([status, label]) => {
@@ -39,11 +52,11 @@ export function boardMarkup(ws: Workspace, items: Item[], icon: IconRenderer = d
     return `<section class="board-column" data-drop="${status}" aria-label="${label}"><header><span class="status-dot ${status}"></span><h2>${label}</h2><span class="count">${list.length}</span><button class="icon-button" data-new-status="${status}" aria-label="Añadir en ${label}">${icon("new")}</button></header><div class="card-list">${list.map(item => cardMarkup(ws, item, icon)).join("")}</div>${list.length ? "" : `<div class="drop-hint">Sin tarjetas</div>`}<button class="column-add" data-new-status="${status}">${icon("new")}Añadir tarjeta</button></section>`;
   }).join("")}</div>`;
 }
-export type BoardViewState = { query?: string; epicFilter?: string; /** Defaults to workspace.settings.board. */ groupBy?: "status" | "epics"; /** Epic filter and card count above the columns. Defaults to true. */ filter?: boolean };
+export type BoardViewState = { query?: string; epicFilter?: string; /** Every label must be present on the card. */ labels?: string[]; /** Defaults to workspace.settings.board. */ groupBy?: "status" | "epics"; /** Epic filter and card count above the columns. Defaults to true. */ filter?: boolean };
 /** Board with its epic filter, welcome note and optional grouping by epic. */
 export function boardViewMarkup(ws: Workspace, state: BoardViewState = {}, icon: IconRenderer = defaultIcon) {
   const epicFilter = state.epicFilter ?? "all";
-  const items = ws.items.filter(i => !i.archived && ["idea", "story", "task"].includes(i.kind) && matchesQuery(i, state.query) && (epicFilter === "all" || within(ws, i, epicFilter)));
+  const items = ws.items.filter(i => !i.archived && ["idea", "story", "task"].includes(i.kind) && matchesQuery(i, state.query, state.labels) && (epicFilter === "all" || within(ws, i, epicFilter)));
   return `${!ws.exampleDismissed ? `<div class="welcome-note">${icon("lightbulb")}<span>Este espacio incluye ejemplos editables. Añade tus ideas o archiva los ejemplos cuando quieras.</span><button class="icon-button" data-action="dismiss-welcome" aria-label="Cerrar bienvenida">${icon("close")}</button></div>` : ""}${state.filter === false ? "" : `<div class="board-filter"><label>Épica <select id="epic-filter"><option value="all">Todas</option>${options(activeEpics(ws), epicFilter)}</select></label><span class="muted">${items.length} tarjetas</span></div>`}${
     (state.groupBy ?? ws.settings.board) === "status"
       ? boardMarkup(ws, items, icon)
@@ -56,7 +69,7 @@ export function boardViewMarkup(ws: Workspace, state: BoardViewState = {}, icon:
 }
 export function knowledgeListMarkup(ws: Workspace, query = "", icon: IconRenderer = defaultIcon) {
   const items = ws.items.filter(i => !i.archived && i.kind === "knowledge" && matchesQuery(i, query));
-  return `<div class="section-intro"><p>El comportamiento del producto y las decisiones que siguen vigentes.</p>${commandButton(icon, "Nueva ficha", "new-knowledge", "new")}</div><div class="document-grid">${items.map(i => `<button class="document-card" data-open="${i.id}"><div class="document-card-top">${icon("document")}<span class="badge ${i.freshness === "current" ? "current" : "pending"}">${i.freshness === "current" ? "Vigente" : i.freshness === "draft" ? "Borrador" : "Por revisar"}</span></div><h2>${esc(i.title)}</h2><p>${esc(i.summary || plain(i.content).slice(0, 140))}</p><footer>Revisión ${i.revision}<span>${neighbors(ws, i.id).length} relaciones · ${date(i.updatedAt)}</span></footer></button>`).join("") || '<div class="empty">Crea una ficha para conservar lo que sabe tu producto.</div>'}</div>`;
+  return `<div class="section-intro"><p>El comportamiento del producto y las decisiones que siguen vigentes.</p>${commandButton(icon, "Nueva ficha", "new-knowledge", "new")}</div><div class="document-grid">${items.map(i => `<button class="document-card" data-open="${i.id}"><div class="document-card-top">${icon("document")}<span class="badge ${i.freshness === "current" ? "current" : "pending"}">${i.freshness === "current" ? "Vigente" : i.freshness === "draft" ? "Borrador" : "Por revisar"}</span></div><h2>${esc(i.title)}</h2><p>${esc(i.summary || plain(i.content).slice(0, 140))}</p>${i.file ? `<code class="document-file" data-open-file="${esc(i.file)}" title="Abrir ${esc(i.file)}">${esc(i.file)}</code>` : ""}<footer>Revisión ${i.revision}<span>${neighbors(ws, i.id).length} relaciones · ${date(i.updatedAt)}</span></footer></button>`).join("") || '<div class="empty">Crea una ficha para conservar lo que sabe tu producto.</div>'}</div>`;
 }
 export function archiveMarkup(ws: Workspace, query = "", icon: IconRenderer = defaultIcon) {
   return `<div class="section-intro"><p>El archivo conserva contenido, relaciones e historial.</p></div><div class="item-list">${ws.items.filter(i => i.archived && matchesQuery(i, query)).map(i => `<div class="item-row"><button data-open="${i.id}">${icon(i.kind)}<span>${esc(i.title)}<small>${kindLabels[i.kind]}</small></span></button><button data-restore="${i.id}">Restaurar</button></div>`).join("") || '<div class="empty">No hay elementos archivados.</div>'}</div>`;
@@ -101,17 +114,34 @@ export function subtasksMarkup(ws: Workspace, item: Item, icon: IconRenderer = d
 export function contextMarkup(item: Item, icon: IconRenderer = defaultIcon) {
   return `<section class="context-summary"><h3>Contexto para IA</h3><p class="muted">Resumen, relaciones y secciones de esta ficha. Los documentos indican su revisión y vigencia.</p><code>${esc(item.id)}</code><button data-action="copy-context">${icon("copy")}Copiar contexto de esta ficha</button><button data-action="export-item">${icon("export")}Exportar ficha</button></section>`;
 }
+const statusLabel = (status?: string) => statuses.find(([s]) => s === status)?.[1] ?? status ?? "";
+const activityText = (entry: NonNullable<Item["activity"]>[number]) => ({
+  status: `Estado: ${statusLabel(entry.from)} → ${statusLabel(entry.to)}`, update: `Editó ${(entry.fields ?? []).map(f => ({ design: "diseño", labels: "etiquetas", criteria: "criterios", file: "archivo" })[f] ?? f).join(", ")}`,
+  archive: "Archivó la ficha", restore: "Restauró la ficha", link: `Vinculó (${entry.note})`, unlink: `Desvinculó (${entry.note})`,
+}[entry.op] ?? entry.op);
+/** Published revisions and the activity log, newest first. */
 export function historyMarkup(item: Item, icon: IconRenderer = defaultIcon) {
-  return `<div class="history-list">${item.history.map((r, index) => `<button data-history="${index}">${icon("document")}<span>Revisión ${r.revision}<small>${date(r.at)} · ${esc(r.summary || "Versión anterior")}</small></span>${icon("right")}</button>`).join("") || '<p class="muted">Las revisiones publicadas conservarán aquí su versión anterior.</p>'}</div>`;
+  const rows = [
+    ...item.history.map((r, index) => ({ at: r.at, html: `<button data-history="${index}">${icon("document")}<span>Revisión ${r.revision}<small>${date(r.at)} · ${esc(r.summary || "Versión anterior")}</small></span>${icon("right")}</button>` })),
+    ...(item.activity ?? []).map(entry => ({ at: entry.at, html: `<div class="activity-row">${icon(entry.op === "status" ? "refresh" : entry.op === "archive" ? "archive" : entry.op === "link" || entry.op === "unlink" ? "link" : "edit")}<span>${esc(activityText(entry))}<small>${date(entry.at)}${entry.actor ? ` · ${esc(entry.actor)}` : ""}${entry.op === "status" && entry.note ? ` · ${esc(entry.note)}` : ""}</small></span></div>` })),
+  ].sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+  return `<div class="history-list">${rows.map(r => r.html).join("") || '<p class="muted">Las revisiones publicadas y la actividad de la ficha aparecerán aquí.</p>'}</div>`;
 }
 /** Properties panel. Pass relations: false to place mountRelations elsewhere. */
-export function propertiesMarkup(ws: Workspace, item: Item, icon: IconRenderer = defaultIcon, relations = true) {
+export function designMarkup(item: Item, icon: IconRenderer = defaultIcon, resolveAsset?: AssetResolver) {
+  if (!item.design?.length) return "";
+  return `<section class="design-list"><div class="section-heading"><h3>Diseño</h3></div>${item.design.map((ref, index) => {
+    const image = ref.image ? resolveAsset?.(ref.image) : undefined;
+    return `<button class="design-link" data-open-design="${index}" title="${esc(ref.file)}#${esc(ref.screen)}">${image ? `<img class="design-thumb" src="${esc(image)}" alt="">` : icon("design")}<span>${esc(designName(ref))}<small>${esc(ref.file)}#${esc(ref.screen)}</small></span>${icon("right")}</button>`;
+  }).join("")}</section>`;
+}
+export function propertiesMarkup(ws: Workspace, item: Item, icon: IconRenderer = defaultIcon, relations = true, resolveAsset?: AssetResolver) {
   const knowledge = item.kind === "knowledge";
   return `<aside class="inspector"><h3>Propiedades</h3><label>Tipo<span>${icon(item.kind)}${kindLabels[item.kind]}</span></label>${!knowledge ? `<label>Estado<select id="item-status">${statuses.map(([s, l]) => `<option value="${s}" ${s === item.status ? "selected" : ""}>${l}</option>`).join("")}</select></label><label>Prioridad<select id="item-priority"><option value="normal">Normal</option><option value="high" ${item.priority === "high" ? "selected" : ""}>Alta</option></select></label>` : `<label>Revisión<span>${item.revision}</span></label>`}${
     ["story", "task"].includes(item.kind)
       ? `<label>${item.kind === "story" ? "Épica" : "Historia"}<select id="item-parent"><option value="">Sin asignar</option>${options(ws.items.filter(i => !i.archived && i.id !== item.id && (item.kind === "story" ? i.kind === "epic" : ["story", "task"].includes(i.kind) && !descendants(ws, item.id).some(child => child.id === i.id))), item.parentId)}</select></label>`
       : ""
-  }<label>Actualizado<span>${date(item.updatedAt)}</span></label>${relations ? relationsMarkup(ws, item, icon) : ""}${item.archived ? `<div class="document-state pending">Este elemento está archivado.</div><button data-restore="${item.id}">Restaurar</button>` : ""}</aside>`;
+  }<label>Actualizado<span>${date(item.updatedAt)}</span></label>${item.labels?.length ? `<label>Etiquetas${labelsMarkup(item.labels)}</label>` : ""}${item.file ? `<label>Archivo<code class="document-file" data-open-file="${esc(item.file)}">${esc(item.file)}</code></label>` : ""}${designMarkup(item, icon, resolveAsset)}${relations ? relationsMarkup(ws, item, icon) : ""}${item.archived ? `<div class="document-state pending">Este elemento está archivado.</div><button data-restore="${item.id}">Restaurar</button>` : ""}</aside>`;
 }
 export type SidebarSection = "search" | "views" | "epics" | "status";
 export const sidebarSections: SidebarSection[] = ["views", "epics", "status"];
@@ -206,11 +236,31 @@ const text = (binder: Binder, selector: string, handler: ((value: string) => voi
   control[event === "input" ? "oninput" : "onchange"] = () => handler(control.value);
 };
 
-export type CardOptions = Common & { workspace: Workspace; item: Item; onOpen?: (id: string) => void };
+type DesignIntent = { /** The host opens the design file at that screen. */ onOpenDesign?: (ref: DesignRef, itemId: string) => void };
+/** Design badges sit inside the card button: they open the design without opening the card. */
+function bindDesign(b: Binder, o: DesignIntent & { workspace: Workspace }, item?: Item) {
+  for (const badge of b.all("[data-open-design]")) {
+    const owner = item ?? o.workspace.items.find(i => i.id === badge.closest<HTMLElement>("[data-drag], [data-open]")?.dataset.drag || i.id === badge.closest<HTMLElement>("[data-open]")?.dataset.open);
+    const ref = owner?.design?.[Number(badge.dataset.openDesign)];
+    if (!o.onOpenDesign || !ref) { if (badge.tagName === "BUTTON") (badge as HTMLButtonElement).disabled = true; continue; }
+    badge.onclick = event => { event.stopPropagation(); event.preventDefault(); o.onOpenDesign!(ref, owner!.id); };
+  }
+}
+type FileIntent = { /** The host opens the file that backs a knowledge item. */ onOpenFile?: (path: string, itemId: string) => void };
+function bindFile(b: Binder, o: FileIntent, itemId?: string) {
+  for (const code of b.all("[data-open-file]")) {
+    const id = itemId ?? code.closest<HTMLElement>("[data-open]")?.dataset.open;
+    if (!o.onOpenFile || !id) continue;
+    code.setAttribute("role", "link"); code.tabIndex = 0;
+    code.onclick = event => { event.stopPropagation(); event.preventDefault(); o.onOpenFile!(code.dataset.openFile!, id); };
+  }
+}
+export type CardOptions = Common & DesignIntent & { workspace: Workspace; item: Item; onOpen?: (id: string) => void };
 export function mountCard(host: HTMLElement, options: CardOptions) {
   return component(host, options, o => cardMarkup(o.workspace, o.item, o.icon), (b, o) => {
     b.one("article")!.draggable = false;
     b.click("[data-open]", o.onOpen && (() => o.onOpen!(o.item.id)), true);
+    bindDesign(b, o, o.item);
   });
 }
 function bindBoard(b: Binder, o: { workspace: Workspace; onOpen?: (id: string) => void; onCreate?: (status: Status) => void; onStatusChange?: (id: string, status: Status) => void }) {
@@ -231,8 +281,9 @@ function bindBoard(b: Binder, o: { workspace: Workspace; onOpen?: (id: string) =
     };
   }
 }
-export type BoardOptions = Common & {
+export type BoardOptions = Common & DesignIntent & {
   workspace: Workspace;
+  labels?: string[];
   /** Columns only, with exactly these items. Omit to get the full board view with filter and grouping. */
   items?: Item[];
   query?: string; epicFilter?: string; groupBy?: "status" | "epics"; filter?: boolean;
@@ -246,14 +297,16 @@ export type BoardOptions = Common & {
 export function mountBoard(host: HTMLElement, options: BoardOptions) {
   return component(host, options, o => o.items ? boardMarkup(o.workspace, o.items, o.icon) : boardViewMarkup(o.workspace, o, o.icon), (b, o) => {
     bindBoard(b, o);
+    bindDesign(b, o);
     text(b, "#epic-filter", o.onEpicFilter, "change");
     b.click('[data-action="dismiss-welcome"]', o.onDismissWelcome && (() => o.onDismissWelcome!()));
   });
 }
-export type KnowledgeListOptions = Common & { workspace: Workspace; query?: string; onOpen?: (id: string) => void; onCreate?: () => void };
+export type KnowledgeListOptions = Common & FileIntent & { workspace: Workspace; query?: string; onOpen?: (id: string) => void; onCreate?: () => void };
 export function mountKnowledgeList(host: HTMLElement, options: KnowledgeListOptions) {
   return component(host, options, o => knowledgeListMarkup(o.workspace, o.query, o.icon), (b, o) => {
     b.click("[data-open]", o.onOpen && (e => o.onOpen!(e.dataset.open!)), true);
+    bindFile(b, o);
     b.click('[data-action="new-knowledge"]', o.onCreate && (() => o.onCreate!()));
   });
 }
@@ -345,8 +398,10 @@ export function mountHistory(host: HTMLElement, options: HistoryOptions) {
     b.click("[data-history]", o.onOpenRevision && (e => o.onOpenRevision!(Number(e.dataset.history))), true);
   });
 }
-export type PropertiesOptions = Common & RelationIntents & {
+export type PropertiesOptions = Common & RelationIntents & DesignIntent & FileIntent & {
   workspace: Workspace; item: Item;
+  /** Turns a design `image` path into a URL for the thumbnail. Without it no thumbnail is shown. */
+  resolveAsset?: AssetResolver;
   /** false leaves relations out so mountRelations can live elsewhere. */
   relations?: boolean;
   /** The select returns to the rendered value until the host calls update(). */
@@ -356,7 +411,8 @@ export type PropertiesOptions = Common & RelationIntents & {
   onRestore?: () => void;
 };
 export function mountProperties(host: HTMLElement, options: PropertiesOptions) {
-  return component(host, options, o => propertiesMarkup(o.workspace, o.item, o.icon, o.relations !== false), (b, o) => {
+  return component(host, options, o => propertiesMarkup(o.workspace, o.item, o.icon, o.relations !== false, o.resolveAsset), (b, o) => {
+    bindDesign(b, o, o.item); bindFile(b, o, o.item.id);
     const controlled = <V extends string>(selector: string, value: string, handler?: (value: V) => void) => text(b, selector, handler && (next => { b.one<HTMLSelectElement>(selector)!.value = value; handler(next as V); }), "change");
     controlled("#item-status", o.item.status, o.onStatus);
     controlled("#item-priority", o.item.priority, o.onPriority);

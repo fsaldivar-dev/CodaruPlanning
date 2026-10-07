@@ -2,7 +2,7 @@
 /* The real application styles. :where keeps specificity equal to the original
  * rules, and every rem goes through --rem so a host controls the scale. */
 :where(.planning-components) {
-  font-size: var(--rem, 1rem);
+  font-size: var(--rem, calc(1 * var(--rem, 1rem)));
   button,
   input,
   select,
@@ -93,15 +93,15 @@
     margin: 0;
   }
   h1 {
-    font-size: calc(1.65 * var(--rem, 1rem));
+    font-size: calc(1.65 * var(--rem, calc(1 * var(--rem, 1rem))));
     font-weight: 700;
     letter-spacing: -0.5px;
   }
   h2 {
-    font-size: calc(1.05 * var(--rem, 1rem));
+    font-size: calc(1.05 * var(--rem, calc(1 * var(--rem, 1rem))));
   }
   h3 {
-    font-size: calc(1 * var(--rem, 1rem));
+    font-size: calc(1 * var(--rem, calc(1 * var(--rem, 1rem))));
     font-weight: 600;
   }
   p {
@@ -112,7 +112,7 @@
     color: var(--muted);
   }
   small {
-    font-size: calc(0.85 * var(--rem, 1rem));
+    font-size: calc(0.85 * var(--rem, calc(1 * var(--rem, 1rem))));
   }
   code {
     font-family: ui-monospace, monospace;
@@ -120,7 +120,7 @@
   }
   kbd {
     font: inherit;
-    font-size: calc(0.85 * var(--rem, 1rem));
+    font-size: calc(0.85 * var(--rem, calc(1 * var(--rem, 1rem))));
     color: var(--muted);
   }
   .symbol {
@@ -162,7 +162,7 @@
   }
   .count {
     color: var(--muted);
-    font-size: calc(0.9 * var(--rem, 1rem));
+    font-size: calc(0.9 * var(--rem, calc(1 * var(--rem, 1rem))));
     font-variant-numeric: tabular-nums;
   }
   .window-toolbar {
@@ -190,10 +190,10 @@
     min-width: 0;
   }
   .window-title strong {
-    font-size: calc(1 * var(--rem, 1rem));
+    font-size: calc(1 * var(--rem, calc(1 * var(--rem, 1rem))));
   }
   .window-title span {
-    font-size: calc(0.85 * var(--rem, 1rem));
+    font-size: calc(0.85 * var(--rem, calc(1 * var(--rem, 1rem))));
     color: var(--muted);
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -246,7 +246,7 @@
     justify-content: space-between;
     padding: 0 10px 7px;
     color: var(--muted);
-    font-size: calc(0.83 * var(--rem, 1rem));
+    font-size: calc(0.83 * var(--rem, calc(1 * var(--rem, 1rem))));
     font-weight: 600;
   }
   .section-split {
@@ -284,7 +284,7 @@
   }
   .sidebar-item small {
     margin-left: auto;
-    font-size: calc(0.9 * var(--rem, 1rem));
+    font-size: calc(0.9 * var(--rem, calc(1 * var(--rem, 1rem))));
   }
   .sidebar-item > span:not(.symbol) {
     flex: 1;
@@ -331,7 +331,7 @@
     gap: 6px;
     align-items: center;
     color: var(--muted);
-    font-size: calc(0.78 * var(--rem, 1rem));
+    font-size: calc(0.78 * var(--rem, calc(1 * var(--rem, 1rem))));
     padding: 5px 9px;
   }
   .local-status .symbol {
@@ -341,7 +341,7 @@
   .draft-item {
     margin-top: 24px;
     color: var(--muted);
-    font-size: calc(0.9 * var(--rem, 1rem));
+    font-size: calc(0.9 * var(--rem, calc(1 * var(--rem, 1rem))));
   }
   .main-content {
     flex: 1;
@@ -374,7 +374,7 @@
     box-shadow: none;
     background: transparent;
     padding: 3px 13px;
-    font-size: calc(0.88 * var(--rem, 1rem));
+    font-size: calc(0.88 * var(--rem, calc(1 * var(--rem, 1rem))));
     min-height: 24px;
   }
   .segmented button[aria-pressed="true"] {
@@ -437,7 +437,7 @@
     background: var(--surface);
     padding: 8px 12px;
     color: var(--muted);
-    font-size: calc(0.86 * var(--rem, 1rem));
+    font-size: calc(0.86 * var(--rem, calc(1 * var(--rem, 1rem))));
     margin: 3px 0 18px;
     max-width: 1100px;
   }
@@ -460,7 +460,7 @@
     align-items: center;
     gap: 13px;
     margin: 0 0 24px;
-    font-size: calc(0.87 * var(--rem, 1rem));
+    font-size: calc(0.87 * var(--rem, calc(1 * var(--rem, 1rem))));
   }
   .board-filter label {
     display: flex;
@@ -469,7 +469,7 @@
     color: var(--muted);
   }
   .board-filter select {
-    font-size: calc(0.87 * var(--rem, 1rem));
+    font-size: calc(0.87 * var(--rem, calc(1 * var(--rem, 1rem))));
     max-width: 240px;
   }
   .board-grid {
@@ -491,7 +491,7 @@
     padding: 0 3px 14px;
   }
   .board-column h2 {
-    font-size: calc(0.95 * var(--rem, 1rem));
+    font-size: calc(0.95 * var(--rem, calc(1 * var(--rem, 1rem))));
     font-weight: 600;
   }
   .board-column > header .icon-button {
@@ -537,13 +537,13 @@
     background: transparent;
   }
   .card-main strong {
-    font-size: calc(1.02 * var(--rem, 1rem));
+    font-size: calc(1.02 * var(--rem, calc(1 * var(--rem, 1rem))));
     line-height: 1.5;
     font-weight: 600;
     letter-spacing: -0.15px;
   }
   .card-main > p {
-    font-size: calc(0.86 * var(--rem, 1rem));
+    font-size: calc(0.86 * var(--rem, calc(1 * var(--rem, 1rem))));
     color: var(--muted);
     line-height: 1.5;
     display: -webkit-box;
@@ -555,7 +555,7 @@
     display: flex;
     justify-content: space-between;
     gap: 8px;
-    font-size: calc(0.76 * var(--rem, 1rem));
+    font-size: calc(0.76 * var(--rem, calc(1 * var(--rem, 1rem))));
     color: var(--muted);
   }
   .card-meta > span:first-child {
@@ -569,7 +569,7 @@
     color: var(--accent);
   }
   .epic-chip {
-    font-size: calc(0.77 * var(--rem, 1rem));
+    font-size: calc(0.77 * var(--rem, calc(1 * var(--rem, 1rem))));
     display: flex;
     gap: 5px;
     align-items: center;
@@ -586,7 +586,7 @@
     display: flex;
     align-items: center;
     gap: 9px;
-    font-size: calc(0.75 * var(--rem, 1rem));
+    font-size: calc(0.75 * var(--rem, calc(1 * var(--rem, 1rem))));
     color: var(--muted);
     padding-top: 9px;
     border-top: 1px solid var(--soft-line);
@@ -614,7 +614,7 @@
   }
   .dependency {
     color: var(--warning);
-    font-size: calc(0.8 * var(--rem, 1rem));
+    font-size: calc(0.8 * var(--rem, calc(1 * var(--rem, 1rem))));
     display: flex;
     align-items: center;
     gap: 5px;
@@ -628,7 +628,7 @@
     box-shadow: none;
     justify-content: flex-start;
     color: var(--muted);
-    font-size: calc(0.87 * var(--rem, 1rem));
+    font-size: calc(0.87 * var(--rem, calc(1 * var(--rem, 1rem))));
     background: transparent;
     width: 100%;
     padding: 10px 6px;
@@ -644,7 +644,7 @@
     border: 1px dashed var(--line);
     border-radius: 8px;
     color: var(--muted);
-    font-size: calc(0.84 * var(--rem, 1rem));
+    font-size: calc(0.84 * var(--rem, calc(1 * var(--rem, 1rem))));
     margin-bottom: 4px;
   }
   .drag-over {
@@ -676,7 +676,7 @@
   }
   .epic-group > summary > .muted {
     font-weight: 400;
-    font-size: calc(0.9 * var(--rem, 1rem));
+    font-size: calc(0.9 * var(--rem, calc(1 * var(--rem, 1rem))));
   }
   .section-intro {
     display: flex;
@@ -714,19 +714,19 @@
     color: var(--accent);
   }
   .badge {
-    font-size: calc(0.77 * var(--rem, 1rem));
+    font-size: calc(0.77 * var(--rem, calc(1 * var(--rem, 1rem))));
     border-radius: 5px;
     padding: 4px 6px;
     background: var(--hover);
     font-weight: 500;
   }
   .document-card h2 {
-    font-size: calc(1.14 * var(--rem, 1rem));
+    font-size: calc(1.14 * var(--rem, calc(1 * var(--rem, 1rem))));
     margin-bottom: 10px;
     line-height: 1.5;
   }
   .document-card p {
-    font-size: calc(0.92 * var(--rem, 1rem));
+    font-size: calc(0.92 * var(--rem, calc(1 * var(--rem, 1rem))));
     color: var(--muted);
     margin-bottom: 24px;
   }
@@ -735,7 +735,7 @@
     justify-content: space-between;
     border-top: 1px solid var(--soft-line);
     padding-top: 12px;
-    font-size: calc(0.78 * var(--rem, 1rem));
+    font-size: calc(0.78 * var(--rem, calc(1 * var(--rem, 1rem))));
     color: var(--muted);
     gap: 8px;
   }
@@ -768,7 +768,7 @@
     align-items: center;
     gap: 15px;
     margin-bottom: 27px;
-    font-size: calc(0.85 * var(--rem, 1rem));
+    font-size: calc(0.85 * var(--rem, calc(1 * var(--rem, 1rem))));
     color: var(--muted);
   }
   .detail-crumb > .icon-button {
@@ -789,7 +789,7 @@
     border: 0 !important;
     border-radius: 4px;
     padding: 4px 0 !important;
-    font-size: calc(1.95 * var(--rem, 1rem));
+    font-size: calc(1.95 * var(--rem, calc(1 * var(--rem, 1rem))));
     font-weight: 700;
     letter-spacing: -0.6px;
     line-height: 1.4;
@@ -818,7 +818,7 @@
     box-shadow: none;
     background: transparent;
     padding: 12px 0;
-    font-size: calc(0.9 * var(--rem, 1rem));
+    font-size: calc(0.9 * var(--rem, calc(1 * var(--rem, 1rem))));
     color: var(--muted);
     border-bottom: 2px solid transparent;
   }
@@ -844,7 +844,7 @@
     gap: 12px;
     margin-bottom: 19px;
     color: var(--muted);
-    font-size: calc(0.88 * var(--rem, 1rem));
+    font-size: calc(0.88 * var(--rem, calc(1 * var(--rem, 1rem))));
   }
   .inspector > label > span {
     color: var(--text);
@@ -855,7 +855,7 @@
     text-align: right;
   }
   .inspector select {
-    font-size: calc(0.88 * var(--rem, 1rem));
+    font-size: calc(0.88 * var(--rem, calc(1 * var(--rem, 1rem))));
     max-width: 134px;
     margin-top: -5px;
     color: var(--text);
@@ -873,7 +873,7 @@
     margin-bottom: 14px;
   }
   .section-heading button {
-    font-size: calc(0.8 * var(--rem, 1rem));
+    font-size: calc(0.8 * var(--rem, calc(1 * var(--rem, 1rem))));
     padding: 4px 6px;
   }
   .section-heading .symbol {
@@ -901,7 +901,7 @@
   }
   .relation-row small {
     display: block;
-    font-size: calc(0.76 * var(--rem, 1rem));
+    font-size: calc(0.76 * var(--rem, calc(1 * var(--rem, 1rem))));
     margin-bottom: 3px;
   }
   .relation-row .symbol {
@@ -921,7 +921,7 @@
     border: 1px solid var(--line);
     padding: 10px 12px;
     border-radius: 7px;
-    font-size: calc(0.9 * var(--rem, 1rem));
+    font-size: calc(0.9 * var(--rem, calc(1 * var(--rem, 1rem))));
     margin-bottom: 20px;
     background: var(--bg);
   }
@@ -938,7 +938,7 @@
   }
   .criteria h3 .muted {
     font-weight: 400;
-    font-size: calc(0.85 * var(--rem, 1rem));
+    font-size: calc(0.85 * var(--rem, calc(1 * var(--rem, 1rem))));
   }
   .criterion {
     display: flex;
@@ -950,7 +950,7 @@
   .criterion input:not([type="checkbox"]) {
     flex: 1;
     width: 0;
-    font-size: calc(0.97 * var(--rem, 1rem));
+    font-size: calc(0.97 * var(--rem, calc(1 * var(--rem, 1rem))));
   }
   .criterion input.plain-input {
     border: 1px solid transparent;
@@ -970,7 +970,7 @@
     height: 11px;
   }
   .criteria > .text-button {
-    font-size: calc(0.9 * var(--rem, 1rem));
+    font-size: calc(0.9 * var(--rem, calc(1 * var(--rem, 1rem))));
     margin-top: 5px;
   }
   .evidence {
@@ -987,7 +987,7 @@
     min-height: 84px;
     margin-bottom: 15px;
     background: var(--bg);
-    font-size: calc(0.96 * var(--rem, 1rem));
+    font-size: calc(0.96 * var(--rem, calc(1 * var(--rem, 1rem))));
   }
   .item-list {
     max-width: 800px;
@@ -1068,7 +1068,7 @@
   }
   .delivery-card header > .muted {
     margin-left: auto;
-    font-size: calc(0.85 * var(--rem, 1rem));
+    font-size: calc(0.85 * var(--rem, calc(1 * var(--rem, 1rem))));
   }
   .delivery-card > p {
     margin-bottom: 18px;
@@ -1098,7 +1098,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
-    font-size: calc(0.85 * var(--rem, 1rem));
+    font-size: calc(0.85 * var(--rem, calc(1 * var(--rem, 1rem))));
     margin-top: 14px;
   }
   .relation-row {
@@ -1162,5 +1162,98 @@
   }
   .sidebar-slot:empty {
     display: none;
+  }
+  /* Labels, design references, activity and file-backed knowledge. */
+  .label-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .label-chip {
+    font-size: calc(0.74 * var(--rem, 1rem));
+    line-height: 1.5;
+    padding: 0 7px;
+    border-radius: 10px;
+    color: var(--label-tone);
+    background: color-mix(in srgb, var(--label-tone) 14%, transparent);
+    white-space: nowrap;
+  }
+  .inspector > label > .label-list {
+    justify-content: flex-end;
+  }
+  .design-badge {
+    color: var(--accent);
+    cursor: default;
+  }
+  .design-badge .symbol {
+    width: 12px;
+    height: 12px;
+  }
+  .design-list .design-link {
+    width: 100%;
+    justify-content: flex-start;
+    text-align: left;
+    gap: 9px;
+    padding: 7px 9px;
+    margin-bottom: 6px;
+    white-space: normal;
+  }
+  .design-link > span:not(.symbol) {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .design-link small,
+  .activity-row small {
+    font-size: calc(0.78 * var(--rem, 1rem));
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .design-link .symbol:first-child {
+    color: var(--accent);
+  }
+  .design-thumb {
+    width: 36px;
+    height: 36px;
+    object-fit: cover;
+    border-radius: 5px;
+    border: 1px solid var(--line);
+    flex: none;
+  }
+  .activity-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 11px;
+    border-bottom: 1px solid var(--soft-line);
+    font-size: calc(0.92 * var(--rem, 1rem));
+  }
+  .activity-row > span:not(.symbol) {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .activity-row .symbol {
+    width: 14px;
+    height: 14px;
+    color: var(--muted);
+  }
+  .document-file {
+    display: block;
+    font-size: calc(0.78 * var(--rem, 1rem));
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .document-file[role="link"] {
+    color: var(--accent);
+    cursor: pointer;
+  }
+  .inspector > label > .document-file {
+    max-width: 60%;
+    text-align: right;
   }
 }

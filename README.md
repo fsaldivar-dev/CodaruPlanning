@@ -131,4 +131,4 @@ mkdir -p artifacts
 npm run pack:planning
 ```
 
-El `.tgz` solo incluye JavaScript compilado, declaraciones TypeScript, licencia, documentación y ejemplos. No incluye la aplicación nativa, dependencias de desarrollo, datos personales ni capturas de QA. Instala ese archivo en una carpeta externa para comprobarlo antes de publicar con `npm publish ./artifacts/fsaldivar.dev-planning-0.3.0.tgz --access public`. La cuenta npm debe tener permiso sobre el scope y puede requerir verificación adicional al publicar.
+El `.tgz` solo incluye JavaScript compilado, declaraciones TypeScript, licencia, documentación y ejemplos. No incluye la aplicación nativa, dependencias de desarrollo, datos personales ni capturas de QA. Instala ese archivo en una carpeta externa para comprobarlo antes de publicar con `npm publish ./artifacts/fsaldivar.dev-planning-0.4.0.tgz --access public`. La cuenta npm debe tener permiso sobre el scope y puede requerir verificación adicional al publicar.

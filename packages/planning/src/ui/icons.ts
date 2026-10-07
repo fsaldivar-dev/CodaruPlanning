@@ -47,6 +47,7 @@ const paths: Record<string, string> = {
   system: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
   delete: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/>',
   sidebar: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M9 5v14"/>',
+  design: '<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M3 9h18M8 20h8M7 4v5M12 13h5"/>',
 };
 paths.lightbulb = paths.idea;
 /** Inline SVG with no external assets. Unknown names render the document icon. */
