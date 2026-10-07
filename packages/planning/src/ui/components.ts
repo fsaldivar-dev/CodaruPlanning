@@ -1,4 +1,4 @@
-import { blockers, descendants, neighbors, plain, kindLabels, statuses, type Item, type Kind, type Workspace, type Status, type DesignRef } from "../../../planning-core/src/index.js";
+import { blockers, descendants, neighbors, plain, kindLabels, statuses, cardSignals, nodeName, type Item, type Kind, type Workspace, type Status, type DesignRef, type CardSignal } from "../../../planning-core/src/index.js";
 import { icon as defaultIcon, esc, type IconRenderer } from "./icons.js";
 export { icon, iconNames, type IconRenderer } from "./icons.js";
 
@@ -38,13 +38,21 @@ export const labelChip = (label: string) => `<span class="label-chip" data-label
 export const labelsMarkup = (labels: string[] | undefined) => labels?.length ? `<span class="label-list">${labels.map(labelChip).join("")}</span>` : "";
 export const designName = (ref: DesignRef) => ref.name || ref.screen;
 export type AssetResolver = (path: string) => string | undefined;
+const signalText: Record<CardSignal["reason"], string> = { design: "Diseño cambió", dependency: "Dependencia cambió", baseline: "Línea base cambió" };
+/** Derived: never stored, it disappears when the card matches its baseline again. */
+export function driftMarkup(ws: Workspace, item: Item, icon: IconRenderer = defaultIcon) {
+  const reasons = [...new Set(cardSignals(ws, item.id).map(s => s.reason))];
+  return reasons.length ? `<span class="drift-badge" data-drift="${reasons.join(" ")}">${icon("warning")}${reasons.map(r => signalText[r]).join(" · ")}</span>` : "";
+}
+const relationLabel: Record<string, string> = { depends: "Depende de", modifies: "Modifica", references: "Consulta", covers: "Pantalla", implements: "Código", uses: "Usa" };
+const nodeIcon: Record<string, string> = { screen: "design", code: "document", token: "palette" };
 
 export function cardMarkup(ws: Workspace, item: Item, icon: IconRenderer = defaultIcon) {
   const parent = item.parentId ? itemBy(ws, item.parentId) : undefined;
   const remaining = blockers(ws, item);
   const docs = ws.relations.filter(r => r.source === item.id && r.type === "modifies").map(r => itemBy(ws, r.target));
   const children = descendants(ws, item.id);
-  return `<article class="work-card" draggable="true" data-drag="${esc(item.id)}"><button class="card-main" data-open="${esc(item.id)}" aria-label="Abrir ${esc(item.title)}"><span class="card-meta"><span>${icon(item.kind)}${kindLabels[item.kind]}</span><span>${shortId(ws, item)}</span></span><strong>${esc(item.title)}</strong>${item.summary ? `<p>${esc(item.summary)}</p>` : ""}${labelsMarkup(item.labels)}${remaining.length ? `<span class="dependency">${icon("link")}${remaining.length} dependencia${remaining.length === 1 ? "" : "s"} pendiente${remaining.length === 1 ? "" : "s"}</span>` : ""}${parent ? `<span class="epic-chip">${icon("epic")}${esc(parent.title)}</span>` : ""}<span class="card-footer"><span>${icon("task")}${item.criteria.filter(c => c.checked).length}/${item.criteria.length}${children.length ? ` · ${children.filter(i => i.status === "done").length}/${children.length} subtareas` : ""}</span>${docs.length ? `<span class="${docs.some(d => d.freshness !== "current") ? "pending" : "current"}">${icon("document")}${docs.some(d => d.freshness !== "current") ? "Revisar" : "Vigente"}</span>` : ""}${item.design?.length ? `<span class="design-badge" data-open-design="0" title="${esc(item.design.map(d => `${d.file}#${d.screen}`).join("\n"))}">${icon("design")}${item.design.length === 1 ? esc(designName(item.design[0])) : `${item.design.length} pantallas`}</span>` : ""}${item.priority === "high" ? '<span class="high">Alta</span>' : ""}</span></button></article>`;
+  return `<article class="work-card" draggable="true" data-drag="${esc(item.id)}"><button class="card-main" data-open="${esc(item.id)}" aria-label="Abrir ${esc(item.title)}"><span class="card-meta"><span>${icon(item.kind)}${kindLabels[item.kind]}</span><span>${shortId(ws, item)}</span></span><strong>${esc(item.title)}</strong>${item.summary ? `<p>${esc(item.summary)}</p>` : ""}${labelsMarkup(item.labels)}${remaining.length ? `<span class="dependency">${icon("link")}${remaining.length} dependencia${remaining.length === 1 ? "" : "s"} pendiente${remaining.length === 1 ? "" : "s"}</span>` : ""}${parent ? `<span class="epic-chip">${icon("epic")}${esc(parent.title)}</span>` : ""}${driftMarkup(ws, item, icon)}<span class="card-footer"><span>${icon("task")}${item.criteria.filter(c => c.checked).length}/${item.criteria.length}${children.length ? ` · ${children.filter(i => i.status === "done").length}/${children.length} subtareas` : ""}</span>${docs.length ? `<span class="${docs.some(d => d.freshness !== "current") ? "pending" : "current"}">${icon("document")}${docs.some(d => d.freshness !== "current") ? "Revisar" : "Vigente"}</span>` : ""}${item.design?.length ? `<span class="design-badge" data-open-design="0" title="${esc(item.design.map(d => `${d.file}#${d.screen}`).join("\n"))}">${icon("design")}${item.design.length === 1 ? esc(designName(item.design[0])) : `${item.design.length} pantallas`}</span>` : ""}${item.priority === "high" ? '<span class="high">Alta</span>' : ""}</span></button></article>`;
 }
 export function boardMarkup(ws: Workspace, items: Item[], icon: IconRenderer = defaultIcon) {
   return `<div class="board-grid">${statuses.map(([status, label]) => {
@@ -85,7 +93,13 @@ export function criteriaMarkup(item: Item, icon: IconRenderer = defaultIcon) {
 }
 export function relationsMarkup(ws: Workspace, item: Item, icon: IconRenderer = defaultIcon) {
   const links = neighbors(ws, item.id);
-  return `<section><div class="section-heading"><h3>Relaciones</h3>${commandButton(icon, "Vincular", "link", "new")}</div>${links.map(n => `<div class="relation-row"><button data-open="${n.item!.id}">${icon(n.item!.kind)}<span><small>${n.direction === "in" ? "←" : "→"} ${n.relation === "depends" ? "Depende de" : n.relation === "modifies" ? "Modifica" : "Consulta"}</small>${esc(n.item!.title)}</span>${icon("right")}</button><button class="icon-button remove-link" data-remove-link="${n.id}" aria-label="Quitar vínculo con ${esc(n.item!.title)}">${icon("close")}</button></div>`).join("") || '<p class="muted">Vincula dependencias y conocimiento relevante.</p>'}</section>`;
+  return `<section><div class="section-heading"><h3>Relaciones</h3>${commandButton(icon, "Vincular", "link", "new")}</div>${links.filter(n => n.item || n.node).map(n => {
+    const title = n.item ? n.item.title : nodeName(n.node!);
+    const label = `<small>${n.direction === "in" ? "←" : "→"} ${relationLabel[n.relation] ?? n.relation}</small>${esc(title)}`;
+    // Screens, code and tokens are not cards: they are shown, not opened.
+    const main = n.item ? `<button data-open="${n.item.id}">${icon(n.item.kind)}<span>${label}</span>${icon("right")}</button>` : `<div class="relation-node" data-node="${esc(n.node!.id)}" title="${esc(typeof n.node!.ref === "string" ? n.node!.ref : `${n.node!.ref.file}#${n.node!.ref.screen}`)}">${icon(nodeIcon[n.node!.kind])}<span>${label}</span></div>`;
+    return `<div class="relation-row">${main}<button class="icon-button remove-link" data-remove-link="${n.id}" aria-label="Quitar vínculo con ${esc(title)}">${icon("close")}</button></div>`;
+  }).join("") || '<p class="muted">Vincula dependencias y conocimiento relevante.</p>'}</section>`;
 }
 /** Breadcrumb, title and summary of an open item. */
 export function itemHeaderMarkup(ws: Workspace, item: Item, icon: IconRenderer = defaultIcon) {
@@ -141,7 +155,7 @@ export function propertiesMarkup(ws: Workspace, item: Item, icon: IconRenderer =
     ["story", "task"].includes(item.kind)
       ? `<label>${item.kind === "story" ? "Épica" : "Historia"}<select id="item-parent"><option value="">Sin asignar</option>${options(ws.items.filter(i => !i.archived && i.id !== item.id && (item.kind === "story" ? i.kind === "epic" : ["story", "task"].includes(i.kind) && !descendants(ws, item.id).some(child => child.id === i.id))), item.parentId)}</select></label>`
       : ""
-  }<label>Actualizado<span>${date(item.updatedAt)}</span></label>${item.labels?.length ? `<label>Etiquetas${labelsMarkup(item.labels)}</label>` : ""}${item.file ? `<label>Archivo<code class="document-file" data-open-file="${esc(item.file)}">${esc(item.file)}</code></label>` : ""}${designMarkup(item, icon, resolveAsset)}${relations ? relationsMarkup(ws, item, icon) : ""}${item.archived ? `<div class="document-state pending">Este elemento está archivado.</div><button data-restore="${item.id}">Restaurar</button>` : ""}</aside>`;
+  }<label>Actualizado<span>${date(item.updatedAt)}</span></label>${(drift => drift ? `<div class="drift-state">${drift}</div>` : "")(driftMarkup(ws, item, icon))}${item.labels?.length ? `<label>Etiquetas${labelsMarkup(item.labels)}</label>` : ""}${item.file ? `<label>Archivo<code class="document-file" data-open-file="${esc(item.file)}">${esc(item.file)}</code></label>` : ""}${designMarkup(item, icon, resolveAsset)}${relations ? relationsMarkup(ws, item, icon) : ""}${item.archived ? `<div class="document-state pending">Este elemento está archivado.</div><button data-restore="${item.id}">Restaurar</button>` : ""}</aside>`;
 }
 export type SidebarSection = "search" | "views" | "epics" | "status";
 export const sidebarSections: SidebarSection[] = ["views", "epics", "status"];
