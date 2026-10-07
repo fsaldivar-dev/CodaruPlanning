@@ -10,7 +10,7 @@ rmSync(outdir, { recursive: true, force: true });
 mkdirSync(outdir, { recursive: true });
 await build({
   absWorkingDir: root,
-  entryPoints: { index: "packages/planning/src/index.ts", files: "packages/planning/src/files.ts", cli: "packages/planning/src/cli.ts", markdown: "packages/planning/src/markdown.ts", editor: "packages/planning/src/ui/editor.ts", "editor-commands": "packages/planning/src/ui/editor/blocks.ts", components: "packages/planning/src/ui/components.ts", mermaid: "packages/planning/src/ui/mermaid.ts", navigation: "packages/planning/src/ui/navigation.ts" },
+  entryPoints: { index: "packages/planning/src/index.ts", files: "packages/planning/src/files.ts", cli: "packages/planning/src/cli.ts", markdown: "packages/planning/src/markdown.ts", editor: "packages/planning/src/ui/editor.ts", document: "packages/planning/src/ui/document.ts", "editor-commands": "packages/planning/src/ui/editor/blocks.ts", components: "packages/planning/src/ui/components.ts", mermaid: "packages/planning/src/ui/mermaid.ts", navigation: "packages/planning/src/ui/navigation.ts" },
   outdir, bundle: true, splitting: true, format: "esm", platform: "neutral", target: ["node22", "safari16"],
   external: [...Object.keys(pkg.dependencies), ...Object.keys(pkg.peerDependencies), "node:*"], sourcemap: false,
   define: { __PLANNING_VERSION__: JSON.stringify(pkg.version) },

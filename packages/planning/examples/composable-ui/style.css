@@ -22,3 +22,5 @@ body { margin: 0; font: 13px -apple-system, BlinkMacSystemFont, sans-serif; }
 #host.properties-left .inspector { border-left: 0; border-right: 1px solid var(--line); }
 [hidden] { display: none !important; }
 #host-status { padding: 5px 20px; font-size: 11px; color: #777; border-top: 1px solid #8884; }
+.host-mockup { display: flex; align-items: center; gap: 14px; width: 100%; padding: 16px; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; text-align: left; }
+.host-phone { width: 46px; height: 82px; border-radius: 9px; border: 2px solid currentColor; opacity: .55; }

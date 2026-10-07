@@ -1,4 +1,5 @@
 import { createBlockEditor, type VisualEditor } from '@fsaldivar.dev/planning/editor';
+import { mountDocument, type DocumentView, type BlockEnhancer } from '@fsaldivar.dev/planning/document';
 import {
   mountWindowToolbar, mountSidebar, mountViewToolbar, mountBoard, mountKnowledgeList, mountArchive, mountDeliveries,
   mountItemHeader, mountDetailTabs, mountCriteria, mountEvidence, mountSubtasks, mountRelations, mountContext, mountHistory, mountProperties,
@@ -19,7 +20,7 @@ const seed = applyOperations(emptyWorkspace('Mi espacio'), { expectedRevision: 0
     markdown: '## Qué queremos lograr\n\nEscribe / para insertar un bloque.\n\n## Cómo lo vamos a resolver\n\n```mermaid\nflowchart LR\n  A[Idea] --> B[Entrega]\n  B --> C[Documentación viva]\n```\n',
     criteria: [{ text: 'El resultado se puede comprobar', checked: false }] },
   { op: 'create', ref: 'task', kind: 'task', parentId: '@story', title: 'Escribir los criterios de aceptación' },
-  { op: 'create', ref: 'doc', kind: 'knowledge', title: 'Cómo funciona el producto', markdown: '## Qué hace\n\nPendiente de verificar.' },
+  { op: 'create', ref: 'doc', kind: 'knowledge', title: 'Cómo funciona el producto', file: 'docs/producto.md', markdown: '## Qué hace\n\nVer [la decisión](adr/0001-acceso.md).\n\n```mermaid\nflowchart LR\n  A[Acceso] --> B{¿Válido?}\n  B -->|sí| C[Tablero]\n  B -->|no| A\n```\n\n## Pantallas\n\n```codaru-mockup\nfile: Mockups.codarumockup\nscreen: s-login\n```\n' },
   { op: 'link', source: '@story', target: '@doc', type: 'modifies' },
 ] });
 let workspace = seed.workspace;
@@ -73,15 +74,34 @@ function mountList() {
 }
 
 // ── Detail of one item: header, tabs, editor, criteria, evidence, properties… all separate.
-let detail: Component<any>[] = [], editor: VisualEditor | undefined;
-function unmountDetail() { detail.forEach(piece => piece.destroy()); detail = []; editor?.destroy(); editor = undefined; }
+// A host renderer for a fence the package does not know.
+const mockupBlock: BlockEnhancer = {
+  language: 'codaru-mockup', label: 'Pantallas',
+  render(code, ctx) {
+    const screen = /screen:\s*(\S+)/.exec(code)?.[1] ?? '?';
+    const figure = document.createElement('button');
+    figure.className = `host-mockup ${ctx.theme}`;
+    figure.innerHTML = '<span class="host-phone"></span>';
+    figure.append(Object.assign(document.createElement('span'), { textContent: `Pantalla ${screen}` }));
+    figure.onclick = () => ctx.onOpen({ screen });
+    return figure;
+  },
+};
+let detail: Component<any>[] = [], editor: VisualEditor | undefined, reading: DocumentView | undefined;
+function unmountDetail() { detail.forEach(piece => piece.destroy()); detail = []; editor?.destroy(); editor = undefined; reading?.destroy(); reading = undefined; }
 function mountDetail() {
   unmountDetail();
   const current = item(), id = current.id, knowledge = current.kind === 'knowledge';
   const patch = (value: ItemPatch) => apply({ op: 'update', id, patch: value });
-  editor = createBlockEditor(el('slot-editor'), {
-    content: current.pendingChange || current.content,
-    onChange(content) { apply(knowledge ? { op: 'draft', id, content } : { op: 'update', id, patch: { content } }); },
+  // Knowledge is read with the document renderer; work items are edited with the block editor.
+  if (knowledge) reading = mountDocument(el('slot-editor'), {
+    content: current.pendingChange || current.content, enhancers: [mockupBlock],
+    onOpen: (target) => status(`Abrir diseño: ${JSON.stringify(target)}`),
+    onOpenLink: href => status(`Abrir enlace: ${href}`),
+  });
+  else editor = createBlockEditor(el('slot-editor'), {
+    content: current.content, enhancers: [mockupBlock],
+    onChange(content) { apply({ op: 'update', id, patch: { content } }); },
   });
   const relations = {
     onOpen: open, onLink: todo('Vincular'),
@@ -101,7 +121,7 @@ function mountDetail() {
     mountSubtasks(el('slot-subtasks'), { workspace, item: current, onOpen: open,
       onCreate() { apply({ op: 'create', kind: current.kind === 'epic' ? 'story' : 'task', parentId: id, title: 'Nueva subtarea' }); } }),
     mountRelations(el('slot-relations'), { workspace, item: current, ...relations }),
-    mountContext(el('slot-context'), { item: current, onCopy() { void navigator.clipboard?.writeText(editor!.getMarkdown()); status('Markdown copiado'); } }),
+    mountContext(el('slot-context'), { item: current, onCopy() { void navigator.clipboard?.writeText((editor ?? reading)!.getMarkdown()); status('Markdown copiado'); } }),
     mountHistory(el('slot-history'), { item: current, onOpenRevision: index => status(`Revisión ${current.history[index].revision}`) }),
     mountProperties(el('slot-properties'), { workspace, item: current, ...relations,
       onStatus(next) { apply({ op: 'status', id, status: next }); },

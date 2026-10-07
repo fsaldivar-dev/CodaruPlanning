@@ -42,6 +42,7 @@ export class CodeView implements NodeView {
   contentDOM: HTMLElement;
   private header: HTMLElement;
   private select: HTMLSelectElement;
+  private languageName!: HTMLElement;
   private node: ProseNode;
   private timer?: ReturnType<typeof setTimeout>;
   constructor(
@@ -96,7 +97,11 @@ export class CodeView implements NodeView {
         copy.setAttribute("aria-label", "Copiar código");
       }, 2500);
     };
-    this.header.append(label, this.select, copy);
+    this.select.hidden = !view.editable;
+    this.languageName = document.createElement("span");
+    this.languageName.className = "code-language";
+    this.languageName.hidden = view.editable;
+    this.header.append(label, this.select, this.languageName, copy);
     const pre = document.createElement("pre");
     this.contentDOM = document.createElement("code");
     this.contentDOM.spellcheck = false;
@@ -111,6 +116,8 @@ export class CodeView implements NodeView {
       ? this.node.attrs.language
       : "plaintext";
     this.dom.dataset.language = this.select.value;
+    const language = String(this.node.attrs.language || "plaintext");
+    this.languageName.textContent = languages.find(([id]) => id === language)?.[1] ?? language;
   }
   update(node: ProseNode) {
     if (node.type !== this.node.type || isMermaid(node)) return false;
