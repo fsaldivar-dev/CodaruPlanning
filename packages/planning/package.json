@@ -1,7 +1,7 @@
 {
   "name": "@fsaldivar.dev/planning",
-  "version": "0.4.0",
-  "description": "Composable planning components, block Markdown editor with Kairo, domain API, agent snapshots and transactional AI CLI.",
+  "version": "0.5.0",
+  "description": "Composable planning components, block Markdown editor and read-only documents with Kairo, domain API, agent snapshots and transactional AI CLI.",
   "type": "module",
   "license": "BSD-3-Clause",
   "author": "fsaldivar-dev",
@@ -43,6 +43,10 @@
     "./editor/commands": {
       "types": "./dist/types/planning/src/ui/editor/blocks.d.ts",
       "import": "./dist/editor-commands.js"
+    },
+    "./document": {
+      "types": "./dist/types/planning/src/ui/document.d.ts",
+      "import": "./dist/document.js"
     },
     "./components": {
       "types": "./dist/types/planning/src/ui/components.d.ts",

@@ -33,7 +33,7 @@ import {
 } from "prosemirror-tables";
 import { plain, markdown, type RichNode } from "../../../planning-core/src/index.js";
 import { icon as defaultIcon, esc, type IconRenderer } from "./icons.js";
-import { fromMarkdown } from "../documents.js";
+import { fromMarkdown, safeHref, validateDocument } from "../documents.js";
 import { schema, validContent } from "./schema.js";
 import {
   blockTypes,
@@ -52,6 +52,8 @@ import { bindNavigation } from "./navigation.js";
 import { CodeView, TaskItemView, codeHighlighting } from "./editor/code.js";
 import { isMermaid, extractMermaidFence } from "./editor/mermaid-source.js";
 import { MermaidView, mermaidSourceSelection } from "./editor/mermaid-view.js";
+import { EnhancedBlockView, enhancerFor, themeEvent, type BlockEnhancer } from "./editor/enhancer.js";
+export type { BlockEnhancer, BlockContext } from "./editor/enhancer.js";
 export { validContent } from "./schema.js";
 
 export type EditorCommand = "bold" | "italic" | "inline-code" | "undo" | "redo" | "row" | "column" | "delete-row" | "delete-column" | "delete-table" | "header";
@@ -70,6 +72,14 @@ export type EditorOptions = {
   label?: string;
   /** Trusted host markup. Defaults to inline SVG with no external assets. */
   icon?: IconRenderer;
+  /** Renderers for fenced blocks, by language. They take precedence over the built-in ones, Mermaid included. */
+  enhancers?: BlockEnhancer[];
+  /** Given to enhancers as ctx.load. */
+  load?: (file: string, language: string) => Promise<unknown>;
+  /** Given to enhancers as ctx.onOpen. */
+  onOpen?: (target: unknown, language: string) => void;
+  /** Called for safe links (http, https, mailto, relative paths). Links never navigate the page by themselves. */
+  onOpenLink?: (href: string) => void;
 };
 export type CreateEditorOptions = EditorOptions & {
   content?: RichNode;
@@ -216,7 +226,7 @@ export class VisualEditor {
           }),
           keymap(baseKeymap),
           codeHighlighting(),
-          mermaidSourceSelection(),
+          mermaidSourceSelection(node => isMermaid(node) || !!enhancerFor(this.config.enhancers, node)),
           new Plugin({
             props: {
               decorations: (state) => {
@@ -247,9 +257,11 @@ export class VisualEditor {
       }),
       editable: () => !readonly,
       nodeViews: {
-        code_block: (node, view, getPos, decorations) => isMermaid(node)
-          ? new MermaidView(node, view, getPos, decorations)
-          : new CodeView(node, view, getPos, icon),
+        code_block: (node, view, getPos, decorations) => {
+          const enhancer = enhancerFor(this.config.enhancers, node);
+          if (enhancer) return new EnhancedBlockView(node, view, getPos, decorations, enhancer, this.config);
+          return isMermaid(node) ? new MermaidView(node, view, getPos, decorations) : new CodeView(node, view, getPos, icon);
+        },
         task_item: (node, view, getPos) => new TaskItemView(node, view, getPos),
       },
       attributes: {
@@ -281,12 +293,16 @@ export class VisualEditor {
       },
       handleDOMEvents: {
         click: (_view, event) => {
-          if ((event.target as Element).closest("a")) {
+          const link = (event.target as Element).closest("a");
+          if (link) {
             event.preventDefault();
+            const href = link.getAttribute("href");
+            if (href && safeHref(href)) this.config.onOpenLink?.(href);
             return true;
           }
           return false;
         },
+        auxclick: (_view, event) => { if ((event.target as Element).closest("a")) { event.preventDefault(); return true; } return false; },
         dragover: (_view, event) => this.dragOver(event),
         drop: (_view, event) => this.drop(event),
       },
@@ -844,3 +860,80 @@ export function createBlockEditor(host: HTMLElement, options: CreateEditorOption
 export { schema } from "./schema.js";
 export { blockTypes } from "./editor/blocks.js";
 export type { BlockKind } from "./editor/blocks.js";
+
+export type DocumentTheme = "light" | "dark" | Record<string, string>;
+export type DocumentOptions = {
+  markdown?: string;
+  content?: RichNode;
+  /** Documents are always read-only; the option exists for clarity. */
+  readOnly?: true;
+  enhancers?: BlockEnhancer[];
+  /** "light" or "dark", or tokens such as { accent: "var(--codaru-accent)" } or { "--planning-surface": "#fff" }. */
+  theme?: DocumentTheme;
+  onOpenLink?: (href: string) => void;
+  load?: (file: string, language: string) => Promise<unknown>;
+  onOpen?: (target: unknown, language: string) => void;
+  icon?: IconRenderer;
+  label?: string;
+  /** Extra class names for the document root. */
+  className?: string;
+};
+export type DocumentView = {
+  readonly element: HTMLElement;
+  /** Changes what is given; enhancer, load and onOpen changes rebuild the document. */
+  update: (options: Partial<DocumentOptions>) => void;
+  destroy: () => void;
+  getMarkdown: () => string;
+};
+const tokenName = (key: string) => key.startsWith("--") ? key : `--planning-${key.replace(/[A-Z]/g, c => `-${c.toLowerCase()}`)}`;
+/** Read-only document with the editor's rendering: tables, task lists, code, Mermaid with Kairo and host enhancers. No editing controls. */
+export function mountDocument(host: HTMLElement, options: DocumentOptions): DocumentView {
+  if (options.content && options.markdown !== undefined) throw new Error("Usa content o markdown, no ambos.");
+  let current: DocumentOptions = { ...options };
+  let applied: string[] = [];
+  const parse = (o: DocumentOptions) => o.content ? validateDocument(o.content) : fromMarkdown(o.markdown ?? "");
+  const create = () => new VisualEditor(host, parse(current), () => {}, {
+    readOnly: true, toolbar: false, tableToolbar: false, footer: false, blockGutter: false,
+    label: current.label ?? "Documento", icon: current.icon, enhancers: current.enhancers,
+    load: current.load, onOpen: current.onOpen, onOpenLink: href => current.onOpenLink?.(href),
+  });
+  let editor = create();
+  const root = () => (editor as unknown as { root: HTMLElement }).root;
+  const style = () => {
+    const element = root();
+    element.classList.add("planning-document");
+    for (const name of current.className?.split(/\s+/).filter(Boolean) ?? []) element.classList.add(name);
+    for (const name of applied) element.style.removeProperty(name);
+    applied = [];
+    const theme = current.theme;
+    if (theme === "light" || theme === "dark") element.dataset.theme = theme;
+    else delete element.dataset.theme;
+    if (theme && typeof theme === "object") for (const [key, value] of Object.entries(theme)) {
+      if (typeof value !== "string" || /[;{}]/.test(value)) continue;
+      const name = tokenName(key);
+      element.style.setProperty(name, value);
+      applied.push(name);
+    }
+    element.dispatchEvent(new Event(themeEvent));
+  };
+  style();
+  return {
+    get element() { return root(); },
+    update(next) {
+      if (next.content && next.markdown !== undefined) throw new Error("Usa content o markdown, no ambos.");
+      const previous = current;
+      current = { ...current, ...next, ...(next.markdown !== undefined ? { content: undefined } : next.content ? { markdown: undefined } : {}) };
+      if (next.enhancers !== undefined && next.enhancers !== previous.enhancers || next.load !== undefined && next.load !== previous.load || next.onOpen !== undefined && next.onOpen !== previous.onOpen || next.icon !== undefined && next.icon !== previous.icon) {
+        const placeholder = document.createComment("planning-document");
+        root().replaceWith(placeholder);
+        editor.destroy();
+        editor = create();
+        placeholder.replaceWith(root());
+        applied = [];
+      } else if (next.markdown !== undefined || next.content) editor.setContent(parse(current));
+      style();
+    },
+    destroy() { editor.destroy(); },
+    getMarkdown: () => editor.getMarkdown(),
+  };
+}

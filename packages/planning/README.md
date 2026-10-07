@@ -136,6 +136,7 @@ Las piezas visuales se importan por separado y no dependen de la aplicación Tau
 | Entrada | Contenido |
 | --- | --- |
 | `@fsaldivar.dev/planning/editor` | `createBlockEditor`, `VisualEditor`, `schema`, `blockTypes` |
+| `@fsaldivar.dev/planning/document` | `mountDocument`: documento de solo lectura con el mismo render que el editor |
 | `@fsaldivar.dev/planning/editor/commands` | Comandos ProseMirror de bloques: `changeBlock`, `moveBlock`, `duplicateBlock`, `deleteBlock`, `createTable` |
 | `@fsaldivar.dev/planning/components` | Cada zona de la aplicación como pieza independiente: `mountSidebar`, `mountBoard`, `mountProperties`… y su marcado (`sidebarMarkup`…) |
 | `@fsaldivar.dev/planning/mermaid` | `mountMermaidPreview`, `openMermaidDesigner`, `parseMermaidPreview`, `applyMermaidEdit` |
@@ -179,6 +180,44 @@ editor.subscribe(state => { negrita.disabled = !editor.can('bold'); });
 - **Otros**: `readOnly`, `placeholder`, `label`, `setZoom`, `focus` y `destroy`.
 
 Cada editor mantiene su propio estado; puedes montar varios en la misma página.
+
+- **Bloques personalizados**: `enhancers: [{ language, render(code, ctx) }]` pinta con tu código las cercas que el paquete no conoce (ver [Documentos de solo lectura](#documentos-de-solo-lectura)). En el editor, el botón «Fuente» del bloque muestra y edita el texto.
+- **Enlaces**: nunca navegan solos. `onOpenLink(href)` recibe los seguros (http, https, mailto y rutas relativas).
+
+### Documentos de solo lectura
+
+`mountDocument` muestra un documento con el mismo render que el editor (tablas, listas de tareas, código, Mermaid con Kairo) y sin ningún control de edición: ni barra, ni pie, ni asa de bloques, ni «Editar en Kairo». Acepta Markdown en texto o el árbol `content`.
+
+```ts
+import { mountDocument, type BlockEnhancer } from '@fsaldivar.dev/planning/document';
+import '@fsaldivar.dev/planning/editor.css';
+
+const mockup: BlockEnhancer = {
+  language: 'codaru-mockup', label: 'Pantallas',
+  async render(code, ctx) {
+    const file = await ctx.load('Mockups.codarumockup');   // lo resuelve tu host
+    const element = renderScreens(code, file, ctx.theme);   // tu renderizador
+    element.onclick = () => ctx.onOpen({ screen: 's-login' });
+    return element;
+  },
+};
+
+const view = mountDocument(contenedor, {
+  markdown: textoDelArchivo,
+  enhancers: [mockup],
+  theme: { accent: 'var(--codaru-accent)', surface: 'var(--codaru-surface)' },
+  load: (file, language) => leerArchivo(file),
+  onOpen: (target, language) => abrirDiseño(target),
+  onOpenLink: href => abrirEnlace(href),
+});
+view.update({ markdown: nuevoTexto });  // también theme, enhancers…
+view.destroy();
+```
+
+- **Enhancers**: `render(code, ctx)` devuelve un `HTMLElement` o una promesa. `ctx` trae `language`, `theme` (`"light"`/`"dark"` en ese momento), `readOnly`, `load(file)`, `onOpen(target)` y `signal` (se aborta si el bloque cambia o desaparece). Tienen prioridad sobre los renderizadores propios, Mermaid incluido, así que sirven también para `dot`, `d2` o `plantuml`. Los mismos `enhancers`, `load` y `onOpen` funcionan en `createBlockEditor`.
+- **Fallos acotados**: si un renderizador lanza un error, su promesa falla o no devuelve un elemento, el bloque muestra su texto original con una nota y el resto del documento sigue igual. Un diagrama Mermaid que no se puede dibujar también deja visible su fuente.
+- **Tema**: `"light"`, `"dark"` o un objeto de variables. Las claves sin `--` se convierten en `--planning-*` (`accent` → `--planning-accent`, `documentFontSize` → `--planning-document-font-size`); las que empiezan por `--` se aplican tal cual. Valores como `var(--codaru-accent)` siguen al host en vivo. Si el host cambia claro/oscuro en un ancestro, Mermaid y los bloques personalizados se vuelven a pintar con el esquema nuevo.
+- **Seguridad**: el contenido nunca ejecuta scripts. Se rinde con el esquema del editor (sin HTML crudo); el Markdown con HTML o imágenes se rechaza, y un `content` con enlaces `javascript:`, `data:` u otros esquemas lanza un error. Lo único que inserta HTML es el elemento que devuelve tu enhancer.
 
 ### Piezas de la aplicación
 
@@ -274,6 +313,6 @@ Los estilos se limitan al contenedor `.codaru-planning` que crea cada pieza y nu
 
 Para usar tus propios iconos, pasa `icon: nombre => '<svg…>'` al editor o a cualquier pieza; `iconNames` lista los nombres que se piden. El resultado se inserta como HTML de confianza: no interpoles en él texto del documento ni del usuario.
 
-`examples/composable-ui` reconstruye la pantalla de la aplicación montando cada pieza en un contenedor del host, con tema claro y oscuro, otro acento y las propiedades cambiadas de lado. Usa únicamente el paquete instalado.
+`examples/composable-ui` reconstruye la pantalla de la aplicación montando cada pieza en un contenedor del host, con tema claro y oscuro, otro acento y las propiedades cambiadas de lado. Las fichas de conocimiento se abren con `mountDocument` y un bloque ```` ```codaru-mockup ```` de ejemplo. Usa únicamente el paquete instalado.
 
 Licencia BSD-3-Clause. Autor: [fsaldivar-dev](https://github.com/fsaldivar-dev).

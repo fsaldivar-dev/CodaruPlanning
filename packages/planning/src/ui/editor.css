@@ -18,3 +18,14 @@
 .block-editor .block-document { padding-left: var(--planning-gutter-width, 36px); }
 .block-editor .block-option strong, .block-editor .block-option small { font-size: 1em; }
 .block-editor .block-search { font-size: 1em; }
+/* Blocks rendered by host enhancers. */
+.block-editor .enhanced-block { border: 1px solid var(--line); border-radius: 8px; margin: 14px 0; overflow: hidden; background: var(--surface); }
+.block-editor .enhanced-header { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1px solid var(--soft-line); font-size: .85em; color: var(--muted); }
+.block-editor .enhanced-label { font-weight: 600; color: var(--text); margin-right: auto; }
+.block-editor .enhanced-header button { border: 0; background: transparent; color: var(--muted); padding: 2px 6px; }
+.block-editor .enhanced-preview:empty { display: none; }
+.block-editor .enhanced-status { padding: 8px 12px; font-size: .85em; color: var(--warning, #a46116); border-left: 3px solid currentColor; margin: 8px 10px; background: var(--bg); }
+.block-editor .enhanced-source { margin: 0; padding: 10px 12px; background: var(--bg); white-space: pre-wrap; }
+/* Read-only documents: no editing affordances, content starts at the edge. */
+.planning-document .block-document { padding-left: 0; }
+.planning-document .code-language { font-size: .85em; color: var(--muted); }

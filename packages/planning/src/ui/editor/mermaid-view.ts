@@ -5,13 +5,13 @@ import { isMermaid } from "./mermaid-source.js";
 import type { mountMermaidPreview } from "./mermaid-preview.js";
 
 // Entering a hidden source with arrow keys must reveal the caret, including in history.
-export function mermaidSourceSelection() {
+export function mermaidSourceSelection(hasHiddenSource: (node: ProseNode) => boolean = isMermaid) {
   return new Plugin({ props: { decorations(state) {
     const { selection } = state;
     if (!(selection instanceof TextSelection)) return null;
     const ranges: Decoration[] = [];
     state.doc.nodesBetween(selection.from, selection.to, (node, pos) => {
-      if (isMermaid(node)) ranges.push(Decoration.node(pos, pos + node.nodeSize,
+      if (hasHiddenSource(node)) ranges.push(Decoration.node(pos, pos + node.nodeSize,
         { class: "mermaid-source-active" }, { mermaidSource: true }));
     });
     return DecorationSet.create(state.doc, ranges);
@@ -130,6 +130,9 @@ export class MermaidView implements NodeView {
         if (!this.alive || revision !== this.revision) return;
         this.canvas.hidden = true;
         this.dom.dataset.preview = "error";
+        // A failing diagram keeps its text visible with the note.
+        this.sourceOpen = true;
+        this.syncSource([]);
         this.status.textContent = error instanceof Error ? error.message : "No se pudo mostrar el diagrama en Kairo. La fuente se conserva.";
       }
     }, delay);
