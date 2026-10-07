@@ -65,7 +65,8 @@ La salida devuelve los IDs asignados a `refs`, las fichas afectadas y la nueva r
 | `create` | `kind`, `title`, `ref` opcional, `parentId`, `summary`, `markdown` o `content`, `criteria` |
 | `update` | `id`, `patch`: título, resumen, prioridad, padre, criterios, evidencia, contenido de trabajo, `design`, `labels` o `file` |
 | `status` | `id`, `status`: `todo`, `doing`, `review`, `done`; `note` opcional con el motivo |
-| `link`, `unlink` | `source`, `target`, `type`: `depends`, `modifies`, `references` |
+| `link`, `unlink` | `source`, `target`, `type`: `depends`, `modifies`, `references`; desde nodos `covers`, `implements`, `uses` |
+| `node`, `unnode` | Crea, actualiza o quita una pantalla, archivo de código o token (ver [Grafo de construcción](#grafo-de-construcción)) |
 | `draft` | `id` de conocimiento, `markdown` o `content`, `evidence` opcional |
 | `publish` | `id` de conocimiento, `evidence`, contenido opcional; publica el borrador pendiente si existe |
 | `archive`, `restore` | `id`; archivar incluye descendientes, restaurar requiere el padre activo |
@@ -98,6 +99,41 @@ Pensado para agentes que crean y mueven tarjetas a partir de mockups aprobados y
       "design": [{ "file": ".codaru/Mockups.codarumockup", "screen": "s-login", "name": "Inicio de sesión", "image": "mockups/login.png" }],
       "labels": ["propuesta", "iPad"], "criteria": [{ "text": "Contraste AA", "checked": false }] },
     { "op": "status", "id": "@login", "status": "doing", "note": "construida según Contraste" }
+  ]
+}
+```
+
+## Grafo de construcción
+
+Une las tarjetas con lo que se construye a partir de ellas: pantallas aprobadas, archivos de código y tokens de diseño. Todo es opcional y aditivo; un espacio sin nodos funciona igual que antes.
+
+- **Nodos** (`ws.nodes`): `{ id, kind: "screen" | "code" | "token", ref, label?, approvedHash?, hash? }`. El `id` es estable y lo elige el host (p. ej. el id de la pantalla) y nunca coincide con el de una ficha. `ref` es `{ file, screen }` en pantallas, una ruta relativa en código y el nombre en tokens. `approvedHash` solo existe en pantallas y es la **única** fuente de «aprobada». `hash` es la versión actual de código y tokens.
+- **Aristas**: `covers` (pantalla → tarjeta), `implements` (código → tarjeta; un archivo tiene **una sola** dueña) y `uses` (código → código o token). Se crean con `link` y se quitan con `unlink`; `unnode` borra el nodo y sus aristas.
+- **Tarjeta**: `paths` (globs de su territorio), `owns` (archivos del cambio, los sella el host al cerrar) y `builtAgainst` (línea base con que se construyó; `null` = sin línea base).
+
+### Señales derivadas
+
+Ninguna señal se guarda: se calculan de los hechos almacenados y se apagan solas cuando la tarjeta vuelve a coincidir con su línea base (re-aprobar al mismo hash, reconstruir). Nada reabre una tarjeta.
+
+| Función | Devuelve |
+| --- | --- |
+| `impact(ws, nodo)` | A quién llega un cambio: `changeset` (la dueña del archivo; es su propio cambio), `affected` (una dependencia o el diseño cambió) y `visual` (pantallas a revisar, señal ligera). El radio de API/`uses` se detiene en la primera dueña de cada rama; el de tokens pasa y llega hasta las pantallas. |
+| `markAffected(ws, origen)` | Desde un nodo, lo mismo que `impact` sin cambiar nada. Desde una ficha, como antes: marca la documentación que modifica como «por revisar» y la devuelve (`docs`). |
+| `baselineFor(ws, tarjeta)` | `{ idDeNodo: hash }` de lo que la tarjeta usa hoy: pantallas aprobadas que la cubren y lo que usa su código, sin entrar en el código de otras dueñas salvo para llegar a tokens. Guárdalo en `builtAgainst` al cerrar. |
+| `baselineFingerprint(baseline)` | Una huella corta, si prefieres guardar `builtAgainst` como texto. Con una sola pantalla es su `approvedHash`. |
+| `cardSignals(ws, tarjeta)` | Qué no coincide: `design` (pantalla), `dependency` (código o token) o `baseline` (con huella de texto no se sabe qué nodo). |
+| `verificationProposals(ws, cubierta?)` | Tarjetas terminadas con señales y sin prueba que las cubra (`cubierta(id)` lo decide el host): proponer verificación, nunca reabrir. |
+
+`neighbors`, `contextRecords`, `exportItem` y el CLI incluyen los nodos (`node` en lugar de `item`). `agentSnapshot` añade `nodes` y `stale` por tarjeta, y `workspaceDiff` añade `nodes: { created, removed, updated }`. Al cambiar el `approvedHash` de una pantalla, cada tarjeta que cubre registra una entrada `approval` en su actividad. En la interfaz, la tarjeta y las propiedades muestran «Diseño cambió» o «Dependencia cambió», y las relaciones con nodos se ven sin abrirse.
+
+```json
+{
+  "expectedRevision": 12, "actor": "Codaru",
+  "operations": [
+    { "op": "node", "id": "s-login", "kind": "screen", "ref": { "file": ".codaru/Mockups.codarumockup", "screen": "s-login" }, "approvedHash": "d1" },
+    { "op": "node", "id": "code-login", "kind": "code", "ref": "src/auth/login.ts", "hash": "c1" },
+    { "op": "link", "source": "s-login", "target": "CARD_ID", "type": "covers" },
+    { "op": "link", "source": "code-login", "target": "CARD_ID", "type": "implements" }
   ]
 }
 ```

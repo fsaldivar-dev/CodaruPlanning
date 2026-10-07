@@ -1,7 +1,9 @@
 import {
   createItem, addRelation, setStatus, reviseKnowledge, markAffected, descendants,
   completionIssues, defaultSettings, id, normalizeLabels, validateDesignRefs, validateFile, recordActivity,
+  validatePaths, validateBaseline, validateNode, nodeOf, itemRelationTypes, nodeRelationTypes, territoryLimits,
   type Workspace, type RichNode, type Kind, type Status, type Relation, type Criterion, type Settings, type DesignRef,
+  type Baseline, type PlanNode,
 } from "../../planning-core/src/index.js";
 import { fromMarkdown, validateDocument, validateDocuments } from "./documents.js";
 
@@ -15,6 +17,12 @@ export type ItemPatch = ContentInput & {
   labels?: string[] | null;
   /** Knowledge only: path of the file that holds the document. null detaches it. */
   file?: string | null;
+  /** Globs of the card's territory. null removes them. */
+  paths?: string[] | null;
+  /** Files of the card's change, sealed when it closes. null removes them. */
+  owns?: string[] | null;
+  /** Baseline the card was built against (see baselineFor). null = no baseline. */
+  builtAgainst?: Baseline;
 };
 export type Operation =
   | ({ op: "create"; ref?: string; kind: Kind; title: string } & Omit<ItemPatch, "title">)
@@ -26,6 +34,10 @@ export type Operation =
   | { op: "archive" | "restore"; id: string }
   | { op: "deliver"; title: string; items: string[]; notes?: string }
   | { op: "settings"; patch: Partial<Settings> }
+  /** Creates or updates a screen, code or token node. null removes label, approvedHash or hash. */
+  | { op: "node"; id: string; kind: PlanNode["kind"]; ref: PlanNode["ref"]; label?: string | null; approvedHash?: string | null; hash?: string | null }
+  /** Removes a node and its relations. */
+  | { op: "unnode"; id: string }
   | { op: "rename"; name: string };
 /** `actor` signs every activity entry the batch produces, e.g. "FranPlanner" or "persona". */
 export type Batch = { expectedRevision: number; operations: Operation[]; actor?: string };
@@ -49,7 +61,7 @@ function content(input: ContentInput): RichNode | undefined {
   if (has(input, "markdown")) return fromMarkdown(input.markdown!);
   if (has(input, "content")) return validateDocument(input.content!);
 }
-const patchKeys = ["title", "summary", "evidence", "priority", "parentId", "criteria", "content", "markdown", "design", "labels", "file"];
+const patchKeys = ["title", "summary", "evidence", "priority", "parentId", "criteria", "content", "markdown", "design", "labels", "file", "paths", "owns", "builtAgainst"];
 
 /** Clone first: failed operations never partly modify the caller's workspace. */
 export function applyOperations(original: Workspace, batch: Batch): ApplyResult {
@@ -111,6 +123,9 @@ export function applyOperations(original: Workspace, batch: Batch): ApplyResult 
       if (item.kind !== "knowledge") throw new Error("Solo una ficha de conocimiento se respalda en un archivo.");
       item.file = patch.file === null ? undefined : validateFile(patch.file); logged.push("file");
     }
+    if (has(patch, "paths")) { item.paths = patch.paths === null ? undefined : validatePaths(patch.paths, "paths", territoryLimits.paths); logged.push("paths"); }
+    if (has(patch, "owns")) { item.owns = patch.owns === null ? undefined : validatePaths(patch.owns, "owns", territoryLimits.owns); logged.push("owns"); }
+    if (has(patch, "builtAgainst")) { item.builtAgainst = validateBaseline(patch.builtAgainst); logged.push("builtAgainst"); }
     if (has(patch, "criteria")) logged.push("criteria");
     const body = content(patch); if (body) item.content = body;
     if (!creating && logged.length) recordActivity(item, { op: "update", actor, fields: logged });
@@ -143,15 +158,43 @@ export function applyOperations(original: Workspace, batch: Batch): ApplyResult 
         }
         case "link": case "unlink": {
           exact(op, ["op", "source", "target", "type"]);
-          if (!["depends", "modifies", "references"].includes(op.type)) throw new Error("Tipo de relación inválido.");
-          const source = get(op.source), target = get(op.target);
+          if (![...itemRelationTypes, ...nodeRelationTypes].some(t => t === op.type)) throw new Error("Tipo de relación inválido.");
+          // Node relations start at a node; their target is a card (covers, implements) or a node (uses).
+          const end = (key: string) => {
+            if (!key.startsWith("@")) { const node = nodeOf(ws, key); if (node) return { id: node.id }; }
+            const item = get(key); return { id: item.id, item };
+          };
+          const source = end(op.source), target = end(op.target);
           if (op.op === "link") {
-            if (source.archived || target.archived) throw new Error("Restaura las fichas antes de vincularlas.");
+            if (source.item?.archived || target.item?.archived) throw new Error("Restaura las fichas antes de vincularlas.");
             addRelation(ws, source.id, target.id, op.type);
           } else ws.relations = ws.relations.filter(r => !(r.source === source.id && r.target === target.id && r.type === op.type));
-          recordActivity(source, { op: op.op, actor, note: op.type, to: target.id });
-          recordActivity(target, { op: op.op, actor, note: op.type, from: source.id });
-          touch(source.id, false); touch(target.id, false); break;
+          for (const [self, other, side] of [[source, target, "to"], [target, source, "from"]] as const)
+            if (self.item) { recordActivity(self.item, { op: op.op, actor, note: op.type, [side]: other.id }); touch(self.item.id, false); }
+          break;
+        }
+        case "node": {
+          exact(op, ["op", "id", "kind", "ref", "label", "approvedHash", "hash"]);
+          if (ws.items.some(i => i.id === op.id)) throw new Error(`${op.id} ya es el id de una ficha.`);
+          const old = nodeOf(ws, op.id);
+          const next: Record<string, unknown> = { ...(old ?? {}), id: op.id, kind: op.kind, ref: op.ref };
+          for (const field of ["label", "approvedHash", "hash"] as const) if (has(op, field)) { if (op[field] === null) delete next[field]; else next[field] = op[field]; }
+          const node = validateNode(next);
+          ws.nodes = [...(ws.nodes ?? []).filter(n => n.id !== node.id), node];
+          // Approvals are the single source of truth: each covered card keeps a trace of the change.
+          if (node.kind === "screen" && old?.approvedHash !== node.approvedHash)
+            for (const r of ws.relations.filter(r => r.type === "covers" && r.source === node.id)) {
+              const card = get(r.target);
+              recordActivity(card, { op: "approval", actor, note: node.id, from: old?.approvedHash, to: node.approvedHash }); affected.add(card.id);
+            }
+          break;
+        }
+        case "unnode": {
+          exact(op, ["op", "id"]);
+          if (!nodeOf(ws, op.id)) throw new Error(`Nodo inexistente: ${op.id}.`);
+          ws.nodes = ws.nodes!.filter(n => n.id !== op.id);
+          ws.relations = ws.relations.filter(r => r.source !== op.id && r.target !== op.id);
+          break;
         }
         case "draft": case "publish": {
           exact(op, ["op", "id", "evidence", "content", "markdown", ...(op.op === "publish" ? ["source"] : [])]);

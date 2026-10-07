@@ -1,6 +1,6 @@
 {
   "name": "@fsaldivar.dev/planning",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Composable planning components, block Markdown editor and read-only documents with Kairo, domain API, agent snapshots and transactional AI CLI.",
   "type": "module",
   "license": "BSD-3-Clause",

@@ -73,7 +73,7 @@ try {
         print({ ...envelope, total: items.length, offset, limit, nextOffset: offset + limit < items.length ? offset + limit : null, items: items.slice(offset, offset + limit).map(summary) });
       } else {
         const item = ws.items.find(i => i.id === key); if (!item) throw new Error("Ficha no encontrada. Obtén un ID con index/search.");
-        if (command === "neighbors") print({ ...envelope, item: summary(item), parent: ws.items.find(i => i.id === item.parentId) && summary(ws.items.find(i => i.id === item.parentId)!), children: ws.items.filter(i => i.parentId === item.id && (values.archived || !i.archived)).map(summary), relations: neighbors(ws, item.id).map(n => ({ type: n.relation, direction: n.direction, item: summary(n.item!) })) });
+        if (command === "neighbors") print({ ...envelope, item: summary(item), parent: ws.items.find(i => i.id === item.parentId) && summary(ws.items.find(i => i.id === item.parentId)!), children: ws.items.filter(i => i.parentId === item.id && (values.archived || !i.archived)).map(summary), relations: neighbors(ws, item.id).map(n => ({ type: n.relation, direction: n.direction, ...(n.item ? { item: summary(n.item) } : { node: n.node }) })) });
         else if (command === "export") process.stdout.write(exportItem(ws, item));
         else {
           let nodes = item.content.content || [];

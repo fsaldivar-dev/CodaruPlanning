@@ -12,6 +12,9 @@ const patch = {
   design: { type: ["array", "null"], maxItems: 20, items: design, description: "Pantallas de diseño (mockup) de esta ficha; null las quita." },
   labels: { type: ["array", "null"], maxItems: 8, items: { type: "string", minLength: 1, maxLength: 24 }, description: "Etiquetas; se normalizan a minúsculas con guiones. null las quita." },
   file: { type: ["string", "null"], maxLength: 300, description: "Solo conocimiento: archivo que contiene el documento; content puede ser un extracto." },
+  paths: { type: ["array", "null"], maxItems: 100, items: path, description: "Globs del territorio de la tarjeta." },
+  owns: { type: ["array", "null"], maxItems: 1000, items: path, description: "Archivos del cambio; los sella el host al cerrar." },
+  builtAgainst: { oneOf: [{ type: "null" }, { type: "string", minLength: 1, maxLength: 256 }, { type: "object", maxProperties: 1000, additionalProperties: { type: "string", minLength: 1, maxLength: 256 } }], description: "Línea base con que se construyó: { idDeNodo: hash } (ver baselineFor) o una huella. null = sin línea base." },
   ...content,
 };
 const operation = (name: string, properties: object, required: string[]) => ({ type: "object", additionalProperties: false, required: ["op", ...required], properties: { op: { const: name }, ...properties } });
@@ -25,7 +28,11 @@ export const batchSchema = {
       operation("create", { kind: { enum: kinds }, ref: { type: "string", pattern: "^[a-zA-Z0-9_-]{1,80}$" }, ...patch }, ["kind", "title"]),
       operation("update", { id: key, patch: { type: "object", additionalProperties: false, properties: patch } }, ["id", "patch"]),
       operation("status", { id: key, status: { enum: ["todo", "doing", "review", "done"] }, note: { type: "string", maxLength: 500, description: "Motivo del cambio, queda en la actividad de la ficha." } }, ["id", "status"]),
-      ...["link", "unlink"].map(op => operation(op, { source: key, target: key, type: { enum: ["depends", "modifies", "references"] } }, ["source", "target", "type"])),
+      ...["link", "unlink"].map(op => operation(op, { source: key, target: key, type: { enum: ["depends", "modifies", "references", "covers", "implements", "uses"], description: "Entre fichas: depends, modifies, references. Desde nodos: covers (pantalla → tarjeta), implements (código → tarjeta, una sola dueña), uses (código → código o token)." } }, ["source", "target", "type"])),
+      operation("node", { id: { type: "string", pattern: "^[a-zA-Z0-9_-]{1,80}$", description: "Id estable elegido por el host (p. ej. el id de la pantalla)." }, kind: { enum: ["screen", "code", "token"] },
+        ref: { oneOf: [{ type: "string", minLength: 1, maxLength: 300 }, { type: "object", additionalProperties: false, required: ["file", "screen"], properties: { file: path, screen: { type: "string", minLength: 1, maxLength: 300 } } }], description: "Pantalla: { file, screen }. Código: ruta relativa. Token: su nombre." },
+        label: { type: ["string", "null"], maxLength: 120 }, approvedHash: { type: ["string", "null"], maxLength: 256, description: "Solo pantallas: única fuente de «aprobada»." }, hash: { type: ["string", "null"], maxLength: 256, description: "Código y tokens: versión actual." } }, ["id", "kind", "ref"]),
+      operation("unnode", { id: key }, ["id"]),
       operation("draft", { id: key, evidence: str, ...content }, ["id"]),
       operation("publish", { id: key, evidence: { type: "string", minLength: 1 }, source: key, ...content }, ["id", "evidence"]),
       ...["archive", "restore"].map(op => operation(op, { id: key }, ["id"])),
